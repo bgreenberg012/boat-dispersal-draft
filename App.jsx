@@ -5,16 +5,14 @@ import { getFirestore, doc, onSnapshot, runTransaction, serverTimestamp, setDoc 
 const DEFAULT_MANAGERS = ["Replacement Team 1", "Replacement Team 2", "Replacement Team 3", "Replacement Team 4"];
 const ACCESS_ROLES = { TEAM: "team", ADMIN: "admin", SPECTATOR: "spectator" };
 const ADMIN_CODE = "BOAT";
-const STORAGE_KEY = "the-boat-dispersal-draft-state-v5";
-const REMOTE_SYNC_NOTE = "Firebase live sync is ready once you paste in your Firebase web config and deploy.";
+
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDMkJu3lXERqYCodV-ZPheRqDTB9HYOvkM",
-  authDomain: "boat-dispersal-draft.firebaseapp.com",
-  projectId: "boat-dispersal-draft",
-  storageBucket: "boat-dispersal-draft.firebasestorage.app",
-  messagingSenderId: "857774208277",
-  appId: "1:857774208277:web:203c90873867804d24251c",
-  measurementId: "G-Y37Q7YL8D6"
+  apiKey: "PASTE_FIREBASE_API_KEY_HERE",
+  authDomain: "PASTE_FIREBASE_AUTH_DOMAIN_HERE",
+  projectId: "PASTE_FIREBASE_PROJECT_ID_HERE",
+  storageBucket: "PASTE_FIREBASE_STORAGE_BUCKET_HERE",
+  messagingSenderId: "PASTE_FIREBASE_MESSAGING_SENDER_ID_HERE",
+  appId: "PASTE_FIREBASE_APP_ID_HERE",
 };
 const FIREBASE_DRAFT_PATH = "draftRooms/the-boat-default";
 
@@ -34,16 +32,11 @@ function getDraftDocRef() {
 
 function sanitizeRemoteState(state) {
   return {
-    assets: state.assets || [],
-    managers: state.managers || DEFAULT_MANAGERS,
+    assets: Array.isArray(state.assets) ? state.assets : [],
+    managers: Array.isArray(state.managers) ? state.managers : DEFAULT_MANAGERS,
     draftMode: state.draftMode || "snake",
     rounds: state.rounds || 35,
-    picks: state.picks || [],
-    filter: state.filter || "All",
-    mainView: state.mainView || "pool",
-    sortMode: state.sortMode || "sfRank",
-    showSetupPanel: Boolean(state.showSetupPanel),
-    selectedTeamIndex: Number.isInteger(state.selectedTeamIndex) ? state.selectedTeamIndex : 0,
+    picks: Array.isArray(state.picks) ? state.picks : [],
   };
 }
 
@@ -506,62 +499,6 @@ function getAccessLabel(access, managers = []) {
   return access.team || "Team user";
 }
 
-function safeLoadDraftState() {
-  try {
-    if (typeof window === "undefined") return null;
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch (error) {
-    console.warn("Unable to load saved draft state", error);
-    return null;
-  }
-}
-
-function safeSaveDraftState(state) {
-  try {
-    if (typeof window === "undefined") return false;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    return true;
-  } catch (error) {
-    console.warn("Unable to save draft state", error);
-    return false;
-  }
-}
-
-function safeClearDraftState() {
-  try {
-    if (typeof window === "undefined") return false;
-    window.localStorage.removeItem(STORAGE_KEY);
-    return true;
-  } catch (error) {
-    console.warn("Unable to clear saved draft state", error);
-    return false;
-  }
-}
-
-function buildPersistedState(state) {
-  return { ...state, savedAt: new Date().toISOString() };
-}
-
-function applyPersistedState(state, setters) {
-  if (!state || typeof state !== "object") return false;
-  if (Array.isArray(state.assets)) setters.setAssets(state.assets);
-  if (Array.isArray(state.managers)) setters.setManagers(state.managers);
-  if (state.draftMode) setters.setDraftMode(state.draftMode);
-  if (state.rounds) setters.setRounds(state.rounds);
-  if (Array.isArray(state.picks)) setters.setPicks(state.picks);
-  if (state.filter) setters.setFilter(state.filter);
-  if (state.mainView) setters.setMainView(state.mainView);
-  if (state.sortMode) setters.setSortMode(state.sortMode);
-  if (typeof state.showSetupPanel === "boolean") setters.setShowSetupPanel(state.showSetupPanel);
-  if (Number.isInteger(state.selectedTeamIndex) && setters.setSelectedTeamIndex) setters.setSelectedTeamIndex(state.selectedTeamIndex);
-  if (state.selectedTeam && setters.setSelectedTeamIndex && Array.isArray(state.managers)) {
-    const legacyIndex = state.managers.findIndex((manager) => manager === state.selectedTeam);
-    if (legacyIndex >= 0) setters.setSelectedTeamIndex(legacyIndex);
-  }
-  return true;
-}
-
 function runSelfTests() {
   const managers = ["A", "B", "C", "D"];
   console.assert(buildDraftSlots(managers, 2, "snake").map((s) => s.manager).join(",") === "A,B,C,D,D,C,B,A", "Snake order should reverse in round 2");
@@ -586,72 +523,48 @@ function runSelfTests() {
   console.assert(canUserDraftForCurrentSlot({ role: ACCESS_ROLES.SPECTATOR }, { manager: "A" }) === false, "Spectator should not be able to draft");
   console.assert(canUserEditSetup({ role: ACCESS_ROLES.ADMIN }) === true, "Admin should be able to edit setup");
   console.assert(canUserEditSetup({ role: ACCESS_ROLES.SPECTATOR }) === false, "Spectator should not be able to edit setup");
-  console.assert(buildPersistedState({ managers: ["A"] }).managers[0] === "A", "Persisted state builder should preserve managers");
   console.assert(normalizeName(" Team 1 ") === "team 1", "Team name normalization should trim and lowercase");
   console.assert(getCommittedManagerName("  New Team  ", "Old Team") === "New Team", "Manager input should commit trimmed names");
   console.assert(getCommittedManagerName("   ", "Old Team") === "Old Team", "Manager input should keep old name if blank");
-  console.assert(buildPersistedState({ selectedTeamIndex: 2 }).selectedTeamIndex === 2, "Persisted state should preserve selected team index");
-  console.assert(REMOTE_SYNC_NOTE.includes("Firebase"), "Remote sync note should mention Firebase");
-  console.assert(isFirebaseConfigured() === false, "Firebase should stay disabled until real config values are pasted");
+  console.assert(typeof isFirebaseConfigured() === "boolean", "Firebase configuration check should return a boolean");
   console.assert(sanitizeRemoteState({ managers: ["A"], picks: [] }).managers[0] === "A", "Remote state sanitizer should preserve managers");
+  console.assert(sanitizeRemoteState({ filter: "QB", mainView: "board", selectedTeamIndex: 2 }).filter === undefined, "Remote state should not include personal UI state");
 }
 
 if (typeof console !== "undefined") runSelfTests();
 
 export default function DynastyDispersalDraftTool() {
-  const savedState = useMemo(() => safeLoadDraftState(), []);
-  const manualCopyRef = useRef(null);
-  const remoteSaveSkipRef = useRef(false);
   const remoteDocRef = useMemo(() => getDraftDocRef(), []);
   const firebaseEnabled = Boolean(remoteDocRef);
+  const remoteLoadedRef = useRef(false);
+  const skipNextRemoteSaveRef = useRef(false);
 
-  const [assets, setAssets] = useState(() => savedState?.assets || parsePipeTable(RAW_ASSETS));
-  const [managers, setManagers] = useState(() => savedState?.managers || DEFAULT_MANAGERS);
-  const [draftMode, setDraftMode] = useState(() => savedState?.draftMode || "snake");
-  const [rounds, setRounds] = useState(() => savedState?.rounds || 35);
-  const [picks, setPicks] = useState(() => savedState?.picks || []);
+  const [assets, setAssets] = useState(() => parsePipeTable(RAW_ASSETS));
+  const [managers, setManagers] = useState(DEFAULT_MANAGERS);
+  const [draftMode, setDraftMode] = useState("snake");
+  const [rounds, setRounds] = useState(35);
+  const [picks, setPicks] = useState([]);
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState(() => savedState?.filter || "All");
+  const [filter, setFilter] = useState("All");
   const [newAsset, setNewAsset] = useState({ name: "", type: "Player", position: "", team: "", sourceRoster: "", notes: "" });
-  const [mainView, setMainView] = useState(() => savedState?.mainView || "pool");
-  const [sortMode, setSortMode] = useState(() => savedState?.sortMode || "sfRank");
-  const [showSetupPanel, setShowSetupPanel] = useState(() => savedState?.showSetupPanel ?? false);
+  const [mainView, setMainView] = useState("pool");
+  const [sortMode, setSortMode] = useState("sfRank");
+  const [showSetupPanel, setShowSetupPanel] = useState(false);
   const [exportMessage, setExportMessage] = useState("");
-  const [saveMessage, setSaveMessage] = useState(savedState ? "Local save loaded" : "Local autosave on");
+  const [syncMessage, setSyncMessage] = useState(firebaseEnabled ? "Connecting to Firebase..." : "Firebase config missing");
   const [access, setAccess] = useState(null);
-  const [selectedTeamIndex, setSelectedTeamIndex] = useState(() => Number.isInteger(savedState?.selectedTeamIndex) ? savedState.selectedTeamIndex : 0);
+  const [selectedTeamIndex, setSelectedTeamIndex] = useState(0);
   const [adminCode, setAdminCode] = useState("");
   const [accessError, setAccessError] = useState("");
-  const [importText, setImportText] = useState("");
-  const [syncMessage, setSyncMessage] = useState(firebaseEnabled ? "Connecting to Firebase..." : "Local fallback mode");
 
   const draftSlots = useMemo(() => buildDraftSlots(managers, rounds, draftMode), [managers, rounds, draftMode]);
   const currentSlot = draftSlots[picks.length];
   const userCanDraftCurrentPick = canUserDraftForCurrentSlot(access, currentSlot);
   const userCanEditSetup = canUserEditSetup(access);
   const draftedIds = useMemo(() => new Set(picks.map((p) => p.asset.id)), [picks]);
-  const availableAssets = assets.filter((asset) => !draftedIds.has(asset.id));
+  const availableAssets = useMemo(() => assets.filter((asset) => !draftedIds.has(asset.id)), [assets, draftedIds]);
   const draftBoardRows = useMemo(() => buildDraftBoardRows(draftSlots, picks, managers), [draftSlots, picks, managers]);
-
-  useEffect(() => {
-    const state = sanitizeRemoteState({ assets, managers, draftMode, rounds, picks, filter, mainView, sortMode, showSetupPanel, selectedTeamIndex });
-    const timeout = window.setTimeout(async () => {
-      if (remoteSaveSkipRef.current) {
-        remoteSaveSkipRef.current = false;
-        return;
-      }
-      safeSaveDraftState(buildPersistedState(state));
-      if (!remoteDocRef) return;
-      try {
-        await setDoc(remoteDocRef, { ...state, updatedAt: serverTimestamp() }, { merge: true });
-        setSyncMessage("Live synced with Firebase");
-      } catch (error) {
-        console.warn("Unable to save remote draft state", error);
-        setSyncMessage("Firebase save failed — local copy still works");
-      }
-    }, 350);
-    return () => window.clearTimeout(timeout);
-  }, [assets, managers, draftMode, rounds, picks, filter, mainView, sortMode, showSetupPanel, selectedTeamIndex, remoteDocRef]);
+  const filterOptions = ["All", "Player", "Pick", "Division", "QB", "RB", "WR", "TE", "DEF"];
 
   useEffect(() => {
     if (!remoteDocRef) return;
@@ -659,40 +572,56 @@ export default function DynastyDispersalDraftTool() {
       remoteDocRef,
       async (snapshot) => {
         if (!snapshot.exists()) {
-          const initialState = sanitizeRemoteState({ assets, managers, draftMode, rounds, picks, filter, mainView, sortMode, showSetupPanel, selectedTeamIndex });
+          const initialState = sanitizeRemoteState({
+            assets: parsePipeTable(RAW_ASSETS),
+            managers: DEFAULT_MANAGERS,
+            draftMode: "snake",
+            rounds: 35,
+            picks: [],
+          });
           await setDoc(remoteDocRef, { ...initialState, updatedAt: serverTimestamp() }, { merge: true });
+          remoteLoadedRef.current = true;
           setSyncMessage("Created Firebase draft room");
           return;
         }
-        const data = snapshot.data();
-        remoteSaveSkipRef.current = true;
-        applyPersistedState(data, { setAssets, setManagers, setDraftMode, setRounds, setPicks, setFilter, setMainView, setSortMode, setShowSetupPanel, setSelectedTeamIndex });
+
+        const data = sanitizeRemoteState(snapshot.data());
+        skipNextRemoteSaveRef.current = true;
+        setAssets(data.assets);
+        setManagers(data.managers);
+        setDraftMode(data.draftMode);
+        setRounds(data.rounds);
+        setPicks(data.picks);
+        remoteLoadedRef.current = true;
         setSyncMessage("Live synced with Firebase");
       },
       (error) => {
         console.warn("Unable to subscribe to remote draft state", error);
-        setSyncMessage("Firebase connection failed — local fallback mode");
+        setSyncMessage("Firebase connection failed");
       }
     );
     return unsubscribe;
   }, [remoteDocRef]);
 
   useEffect(() => {
-    function handleStorage(event) {
-      if (event.key !== STORAGE_KEY || !event.newValue) return;
-      try {
-        const incomingState = JSON.parse(event.newValue);
-        applyPersistedState(incomingState, { setAssets, setManagers, setDraftMode, setRounds, setPicks, setFilter, setMainView, setSortMode, setShowSetupPanel, setSelectedTeamIndex });
-        setSyncMessage("Synced from another tab on this browser");
-      } catch (error) {
-        console.warn("Unable to sync saved draft state", error);
-      }
+    if (!remoteDocRef || !remoteLoadedRef.current) return;
+    if (skipNextRemoteSaveRef.current) {
+      skipNextRemoteSaveRef.current = false;
+      return;
     }
-    if (typeof window !== "undefined") window.addEventListener("storage", handleStorage);
-    return () => {
-      if (typeof window !== "undefined") window.removeEventListener("storage", handleStorage);
-    };
-  }, []);
+
+    const state = sanitizeRemoteState({ assets, managers, draftMode, rounds, picks });
+    const timeout = window.setTimeout(async () => {
+      try {
+        await setDoc(remoteDocRef, { ...state, updatedAt: serverTimestamp() }, { merge: true });
+        setSyncMessage("Live synced with Firebase");
+      } catch (error) {
+        console.warn("Unable to save remote draft state", error);
+        setSyncMessage("Firebase save failed");
+      }
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [assets, managers, draftMode, rounds, picks, remoteDocRef]);
 
   const filteredAssets = availableAssets.filter((asset) => {
     const matchesType = filter === "All" || asset.type === filter || asset.position === filter;
@@ -702,33 +631,29 @@ export default function DynastyDispersalDraftTool() {
 
   const sortedAssets = [...filteredAssets].sort((a, b) => compareAssetsBySortMode(a, b, sortMode));
   const rosterByManager = managers.map((manager, managerIndex) => ({ manager, managerIndex, assets: picks.filter((p) => p.managerIndex === managerIndex || p.manager === manager).map((p) => p.asset) }));
-  const filterOptions = ["All", "Player", "Pick", "Division", "QB", "RB", "WR", "TE", "DEF"];
 
   async function draftAsset(asset) {
-    if (!currentSlot || !userCanDraftCurrentPick) return;
-    if (isAssetBlockedForManager(picks, currentSlot.manager, asset)) return;
-
     if (!remoteDocRef) {
-      setPicks((prev) => [...prev, { ...currentSlot, asset, timestamp: new Date().toISOString() }]);
+      setSyncMessage("Firebase config missing — cannot draft");
       return;
     }
+    if (!currentSlot || !userCanDraftCurrentPick) return;
+    if (isAssetBlockedForManager(picks, currentSlot.manager, asset)) return;
 
     try {
       await runTransaction(cachedFirestore, async (transaction) => {
         const snapshot = await transaction.get(remoteDocRef);
-        const remoteData = snapshot.exists() ? snapshot.data() : {};
+        const remoteData = snapshot.exists() ? sanitizeRemoteState(snapshot.data()) : sanitizeRemoteState({});
         const remotePicks = Array.isArray(remoteData.picks) ? remoteData.picks : [];
-        const remoteManagers = Array.isArray(remoteData.managers) ? remoteData.managers : managers;
-        const remoteDraftMode = remoteData.draftMode || draftMode;
-        const remoteRounds = remoteData.rounds || rounds;
-        const remoteSlots = buildDraftSlots(remoteManagers, remoteRounds, remoteDraftMode);
+        const remoteSlots = buildDraftSlots(remoteData.managers, remoteData.rounds, remoteData.draftMode);
         const slot = remoteSlots[remotePicks.length];
         if (!slot) return;
         if (!canUserDraftForCurrentSlot(access, slot)) return;
         if (remotePicks.some((pick) => pick.asset?.id === asset.id)) return;
         if (isAssetBlockedForManager(remotePicks, slot.manager, asset)) return;
+
         transaction.set(remoteDocRef, {
-          ...sanitizeRemoteState({ ...remoteData, managers: remoteManagers, draftMode: remoteDraftMode, rounds: remoteRounds, picks: [...remotePicks, { ...slot, asset, timestamp: new Date().toISOString() }] }),
+          ...sanitizeRemoteState({ ...remoteData, picks: [...remotePicks, { ...slot, asset, timestamp: new Date().toISOString() }] }),
           updatedAt: serverTimestamp(),
         }, { merge: true });
       });
@@ -770,11 +695,9 @@ export default function DynastyDispersalDraftTool() {
 
   function resetDraft() {
     setPicks([]);
-    setSaveMessage("Draft reset and saved");
   }
 
   function clearSavedDraft() {
-    safeClearDraftState();
     setPicks([]);
     setAssets(parsePipeTable(RAW_ASSETS));
     setManagers(DEFAULT_MANAGERS);
@@ -785,7 +708,6 @@ export default function DynastyDispersalDraftTool() {
     setSortMode("sfRank");
     setShowSetupPanel(true);
     setSelectedTeamIndex(0);
-    setSaveMessage("Saved draft cleared");
   }
 
   function addAsset() {
@@ -837,36 +759,20 @@ export default function DynastyDispersalDraftTool() {
     reader.readAsText(file);
   }
 
-  async function copyShareState() {
-    const state = buildPersistedState({ assets, managers, draftMode, rounds, picks, filter, mainView, sortMode, showSetupPanel, selectedTeamIndex });
-    const encoded = JSON.stringify(state);
-    setImportText(encoded);
-    try {
-      if (!navigator?.clipboard?.writeText) throw new Error("Clipboard API unavailable");
-      await navigator.clipboard.writeText(encoded);
-      setSyncMessage("Copied draft state to clipboard. Send it to other users to import.");
-    } catch (error) {
-      setSyncMessage("Clipboard blocked. State is in the text box below—select and copy it manually.");
-      window.setTimeout(() => {
-        if (manualCopyRef.current) {
-          manualCopyRef.current.focus();
-          manualCopyRef.current.select();
-        }
-      }, 0);
-    }
-  }
-
-  function importShareState() {
-    try {
-      const parsed = JSON.parse(importText);
-      const applied = applyPersistedState(parsed, { setAssets, setManagers, setDraftMode, setRounds, setPicks, setFilter, setMainView, setSortMode, setShowSetupPanel, setSelectedTeamIndex });
-      if (!applied) throw new Error("Invalid state");
-      safeSaveDraftState(parsed);
-      setImportText("");
-      setSyncMessage("Imported shared draft state");
-    } catch (error) {
-      setSyncMessage("Could not import state. Make sure the full copied JSON was pasted.");
-    }
+  if (!firebaseEnabled) {
+    return (
+      <div className="min-h-screen bg-slate-950 p-4 text-slate-100">
+        <div className="mx-auto flex min-h-[calc(100vh-2rem)] max-w-3xl items-center justify-center">
+          <Card className="w-full rounded-3xl shadow-lg shadow-black/20">
+            <CardContent className="space-y-4 p-6 md:p-8">
+              <div className="inline-flex items-center gap-2 rounded-full bg-amber-950/50 px-3 py-1 text-sm font-medium text-amber-200"><Icon>🔥</Icon> Firebase required</div>
+              <h1 className="text-3xl font-bold tracking-tight">Paste your Firebase web config</h1>
+              <p className="text-slate-300">This version is Firebase-only. Replace the PASTE_FIREBASE_* values at the top of the file, commit to GitHub, and Vercel will redeploy the live draft app.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
   }
 
   if (!access) {
@@ -902,7 +808,7 @@ export default function DynastyDispersalDraftTool() {
                 </div>
               </div>
               {accessError && <div className="rounded-2xl border border-red-800 bg-red-950/40 p-3 text-sm text-red-200">{accessError}</div>}
-              <div className="text-xs text-slate-500">Note: this is client-side access control. Cross-device live syncing requires a backend/database.</div>
+              <div className="text-xs text-slate-500">Firebase live sync is enabled for the shared draft room.</div>
             </CardContent>
           </Card>
         </div>
@@ -923,8 +829,8 @@ export default function DynastyDispersalDraftTool() {
             <div className="flex flex-col gap-3 lg:items-end">
               <div className="flex flex-wrap items-center justify-end gap-2 text-sm">
                 <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-slate-300">Mode: {getAccessLabel(access, managers)}</span>
-                <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-cyan-300">{saveMessage}</span>
-                <span className={`rounded-full border px-3 py-1 ${firebaseEnabled ? "border-emerald-700 bg-emerald-950/40 text-emerald-200" : "border-amber-700 bg-amber-950/40 text-amber-200"}`}>{firebaseEnabled ? "Firebase live" : "Local fallback"}</span>
+                <span className="rounded-full border border-emerald-700 bg-emerald-950/40 px-3 py-1 text-emerald-200">Firebase live</span>
+                <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-cyan-300">{syncMessage}</span>
                 <Button variant="outline" size="sm" className="rounded-xl" onClick={switchAccess}>Switch</Button>
               </div>
               <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">
@@ -937,15 +843,10 @@ export default function DynastyDispersalDraftTool() {
           </div>
         </header>
 
-        <div className="rounded-2xl border border-amber-800 bg-amber-950/30 p-4 text-sm text-amber-100">
-          <div className="font-semibold">Remote draft note</div>
-          <div className="mt-1">{firebaseEnabled ? "Firebase is configured. This draft room will sync live for everyone using the same deployed app." : `${REMOTE_SYNC_NOTE} Until Firebase config is pasted in, this canvas preview saves only in this browser.`}</div>
-        </div>
-
         <div className={showSetupPanel ? "grid gap-4 lg:grid-cols-[360px_1fr]" : "grid gap-4 lg:grid-cols-1"}>
           {showSetupPanel && (
             <aside className="space-y-4">
-              <SetupCard managers={managers} setManagers={setManagers} rounds={rounds} setRounds={setRounds} draftMode={draftMode} setDraftMode={setDraftMode} currentSlot={currentSlot} access={access} userCanDraftCurrentPick={userCanDraftCurrentPick} userCanEditSetup={userCanEditSetup} picks={picks} undoPick={() => setPicks((prev) => prev.slice(0, -1))} resetDraft={resetDraft} clearSavedDraft={clearSavedDraft} setShowSetupPanel={setShowSetupPanel} copyShareState={copyShareState} importShareState={importShareState} importText={importText} setImportText={setImportText} manualCopyRef={manualCopyRef} />
+              <SetupCard managers={managers} setManagers={setManagers} rounds={rounds} setRounds={setRounds} draftMode={draftMode} setDraftMode={setDraftMode} currentSlot={currentSlot} access={access} userCanDraftCurrentPick={userCanDraftCurrentPick} userCanEditSetup={userCanEditSetup} picks={picks} undoPick={() => setPicks((prev) => prev.slice(0, -1))} resetDraft={resetDraft} clearSavedDraft={clearSavedDraft} setShowSetupPanel={setShowSetupPanel} />
               <AssetsAdminCard userCanEditSetup={userCanEditSetup} newAsset={newAsset} setNewAsset={setNewAsset} addAsset={addAsset} handleCsvUpload={handleCsvUpload} setShowSetupPanel={setShowSetupPanel} />
             </aside>
           )}
@@ -978,7 +879,7 @@ function Stat({ label, value }) {
 }
 
 function SetupCard(props) {
-  const { managers, setManagers, rounds, setRounds, draftMode, setDraftMode, currentSlot, access, userCanDraftCurrentPick, userCanEditSetup, picks, undoPick, resetDraft, clearSavedDraft, setShowSetupPanel, copyShareState, importShareState, importText, setImportText, manualCopyRef } = props;
+  const { managers, setManagers, rounds, setRounds, draftMode, setDraftMode, currentSlot, access, userCanDraftCurrentPick, userCanEditSetup, picks, undoPick, resetDraft, clearSavedDraft, setShowSetupPanel } = props;
   return (
     <Card className="rounded-3xl shadow-lg shadow-black/20">
       <CardContent className="space-y-4 p-5">
@@ -1026,17 +927,7 @@ function SetupCard(props) {
           <Button variant="outline" className="rounded-xl" onClick={undoPick} disabled={!picks.length}><span className="mr-2">↩</span> Undo</Button>
           <Button variant="outline" className="rounded-xl" onClick={resetDraft} disabled={!userCanEditSetup}><span className="mr-2">↻</span> Reset draft</Button>
         </div>
-        <Button variant="outline" className="w-full rounded-xl border-red-800 text-red-200 hover:bg-red-950/40" onClick={clearSavedDraft} disabled={!userCanEditSetup}>Clear saved draft + restore defaults</Button>
-
-        <div className="rounded-2xl border border-slate-700 bg-slate-950 p-3">
-          <div className="mb-2 text-sm font-semibold">Share/sync draft state</div>
-          <p className="mb-3 text-xs text-slate-400">This tool is local-only. Copy may be blocked here, so the state also appears in the box for manual copying.</p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="rounded-xl" onClick={copyShareState} disabled={!userCanEditSetup}>Prepare state to copy</Button>
-            <Button variant="outline" size="sm" className="rounded-xl" onClick={importShareState}>Import pasted state</Button>
-          </div>
-          <textarea ref={manualCopyRef} className={`mt-2 h-20 w-full ${smallInputClass}`} placeholder="Paste shared draft state here, or click Prepare state to copy" value={importText} onChange={(e) => setImportText(e.target.value)} />
-        </div>
+        <Button variant="outline" className="w-full rounded-xl border-red-800 text-red-200 hover:bg-red-950/40" onClick={clearSavedDraft} disabled={!userCanEditSetup}>Clear draft + restore defaults</Button>
       </CardContent>
     </Card>
   );

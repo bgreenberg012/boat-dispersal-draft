@@ -414,6 +414,44 @@ function getSuperflexRank(asset) {
   return SF_RANKINGS[asset?.name] ?? 9999;
 }
 
+function sortRosterAssets(assets) {
+  return [...assets].sort((a, b) => compareAssetsBySortMode(a, b, "sfRank"));
+}
+
+function takeBestPlayer(players, predicate) {
+  const index = players.findIndex(predicate);
+  if (index < 0) return null;
+  const [player] = players.splice(index, 1);
+  return player;
+}
+
+function buildLineupGroups(assets) {
+  const players = sortRosterAssets(assets.filter((asset) => asset.type === "Player" && asset.position !== "DEF"));
+  const defenses = sortRosterAssets(assets.filter((asset) => asset.type === "Player" && asset.position === "DEF"));
+  const draftPicks = sortRosterAssets(assets.filter((asset) => asset.type === "Pick"));
+  const divisions = sortRosterAssets(assets.filter((asset) => asset.type === "Division"));
+
+  const starters = [
+    { slot: "QB", asset: takeBestPlayer(players, (asset) => asset.position === "QB") },
+    { slot: "RB", asset: takeBestPlayer(players, (asset) => asset.position === "RB") },
+    { slot: "RB", asset: takeBestPlayer(players, (asset) => asset.position === "RB") },
+    { slot: "WR", asset: takeBestPlayer(players, (asset) => asset.position === "WR") },
+    { slot: "WR", asset: takeBestPlayer(players, (asset) => asset.position === "WR") },
+    { slot: "TE", asset: takeBestPlayer(players, (asset) => asset.position === "TE") },
+    { slot: "FLEX", asset: takeBestPlayer(players, (asset) => ["RB", "WR", "TE"].includes(asset.position)) },
+    { slot: "FLEX", asset: takeBestPlayer(players, (asset) => ["RB", "WR", "TE"].includes(asset.position)) },
+    { slot: "SUPERFLEX", asset: takeBestPlayer(players, (asset) => ["QB", "RB", "WR", "TE"].includes(asset.position)) },
+    { slot: "DEF", asset: takeBestPlayer(defenses, () => true) },
+  ];
+
+  return {
+    starters,
+    bench: sortRosterAssets([...players, ...defenses]),
+    draftPicks,
+    divisions,
+  };
+}
+
 function compareAssetsBySortMode(a, b, sortMode) {
   if (sortMode === "alpha") return a.name.localeCompare(b.name);
   const rankDiff = getSuperflexRank(a) - getSuperflexRank(b);
@@ -530,6 +568,19 @@ function runSelfTests() {
   console.assert(typeof isFirebaseConfigured() === "boolean", "Firebase configuration check should return a boolean");
   console.assert(sanitizeRemoteState({ managers: ["A"], picks: [] }).managers[0] === "A", "Remote state sanitizer should preserve managers");
   console.assert(sanitizeRemoteState({ filter: "QB", mainView: "board", selectedTeamIndex: 2 }).filter === undefined, "Remote state should not include personal UI state");
+  const testLineup = buildLineupGroups([
+    { name: "QB1", type: "Player", position: "QB" },
+    { name: "RB1", type: "Player", position: "RB" },
+    { name: "RB2", type: "Player", position: "RB" },
+    { name: "WR1", type: "Player", position: "WR" },
+    { name: "WR2", type: "Player", position: "WR" },
+    { name: "TE1", type: "Player", position: "TE" },
+    { name: "DEF1", type: "Player", position: "DEF" },
+    { name: "2026 Rookie 1.01", type: "Pick", position: "Draft Pick" },
+    { name: "A Division Slot", type: "Division", position: "Division" },
+  ]);
+  console.assert(testLineup.starters.length === 10, "Lineup should have 10 starter slots");
+  console.assert(testLineup.draftPicks.length === 1 && testLineup.divisions.length === 1, "Lineup should split picks and divisions");
 }
 
 if (typeof console !== "undefined") runSelfTests();
@@ -557,6 +608,7 @@ export default function DynastyDispersalDraftTool() {
   const [selectedTeamIndex, setSelectedTeamIndex] = useState(0);
   const [adminCode, setAdminCode] = useState("");
   const [accessError, setAccessError] = useState("");
+  const [activeRosterTab, setActiveRosterTab] = useState(0);
 
   const draftSlots = useMemo(() => buildDraftSlots(managers, rounds, draftMode), [managers, rounds, draftMode]);
   const currentSlot = draftSlots[picks.length];
@@ -632,6 +684,12 @@ export default function DynastyDispersalDraftTool() {
 
   const sortedAssets = [...filteredAssets].sort((a, b) => compareAssetsBySortMode(a, b, sortMode));
   const rosterByManager = managers.map((manager, managerIndex) => ({ manager, managerIndex, assets: picks.filter((p) => p.managerIndex === managerIndex || p.manager === manager).map((p) => p.asset) }));
+
+  useEffect(() => {
+    if (access?.role === ACCESS_ROLES.TEAM && Number.isInteger(access.managerIndex)) {
+      setActiveRosterTab(access.managerIndex);
+    }
+  }, [access]);
 
   async function draftAsset(asset) {
     if (!remoteDocRef) {
@@ -861,7 +919,7 @@ export default function DynastyDispersalDraftTool() {
             )}
             <div className="grid gap-4 xl:grid-cols-2">
               <DraftResults picks={picks} exportMessage={exportMessage} exportAvailableCsv={exportAvailableCsv} exportResultsCsv={exportResultsCsv} />
-              <Rosters rosterByManager={rosterByManager} />
+              <Rosters rosterByManager={rosterByManager} activeRosterTab={activeRosterTab} setActiveRosterTab={setActiveRosterTab} />
             </div>
           </main>
         </div>
@@ -1150,26 +1208,101 @@ function DraftResults({ picks, exportMessage, exportAvailableCsv, exportResultsC
   );
 }
 
-function Rosters({ rosterByManager }) {
+function Rosters({ rosterByManager, activeRosterTab, setActiveRosterTab }) {
+  const activeRoster = rosterByManager[activeRosterTab] || rosterByManager[0];
+  const groups = buildLineupGroups(activeRoster?.assets || []);
+
   return (
     <Card className="rounded-3xl shadow-lg shadow-black/20">
       <CardContent className="p-5">
-        <div className="mb-4 font-semibold">New team rosters</div>
-        <div className="grid gap-3">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="font-semibold">New team rosters</div>
+            <p className="mt-1 text-sm text-slate-400">Starter slots auto-fill by Superflex dynasty rank, with remaining players on the bench.</p>
+          </div>
+          <div className="text-sm text-slate-400">{activeRoster?.assets.length || 0} total assets</div>
+        </div>
+
+        <div className="mb-4 flex flex-wrap gap-2 rounded-2xl bg-slate-950 p-2">
           {rosterByManager.map(({ manager, managerIndex, assets }) => (
-            <div key={`${managerIndex}-${manager}`} className="rounded-2xl border border-slate-700 bg-slate-950 p-3">
-              <div className="flex items-center justify-between">
-                <div className="font-semibold">{manager}</div>
-                <div className="text-sm text-slate-400">{assets.length} assets</div>
+            <button
+              key={`${managerIndex}-${manager}`}
+              className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${activeRosterTab === managerIndex ? "bg-cyan-500 text-slate-950" : "text-slate-300 hover:bg-slate-800"}`}
+              onClick={() => setActiveRosterTab(managerIndex)}
+            >
+              Team {managerIndex + 1}: {manager}
+              <span className="ml-2 rounded-full bg-slate-800 px-2 py-0.5 text-xs text-slate-300">{assets.length}</span>
+            </button>
+          ))}
+        </div>
+
+        {!activeRoster ? (
+          <div className="rounded-2xl border border-slate-700 bg-slate-950 p-6 text-center text-slate-400">No roster selected.</div>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="font-semibold">{activeRoster.manager}</div>
+                <div className="text-xs text-slate-400">1QB · 2RB · 2WR · 1TE · 2 FLEX · 1 SUPERFLEX · 1 DEF</div>
               </div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {assets.map((asset) => <span key={asset.id} className={`rounded-full px-3 py-1 text-xs font-medium ring-1 ${getAssetColorClasses(asset)}`}>{asset.name}</span>)}
-                {!assets.length && <span className="text-sm text-slate-400">No picks yet</span>}
+              <div className="grid gap-2 md:grid-cols-2">
+                {groups.starters.map((entry, index) => (
+                  <LineupSlot key={`${entry.slot}-${index}`} slot={entry.slot} asset={entry.asset} />
+                ))}
               </div>
+            </div>
+
+            <RosterSection title="Bench" count={groups.bench.length} emptyText="No bench players yet." assets={groups.bench} />
+            <RosterSection title="Draft picks" count={groups.draftPicks.length} emptyText="No draft picks yet." assets={groups.draftPicks} />
+            <RosterSection title="Division" count={groups.divisions.length} emptyText="No division slot yet." assets={groups.divisions} />
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function LineupSlot({ slot, asset }) {
+  return (
+    <div className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-3">
+      <div className="min-w-24 text-xs font-bold tracking-wide text-slate-400">{slot}</div>
+      {asset ? (
+        <div className="flex flex-1 items-center justify-between gap-3">
+          <div>
+            <div className="font-semibold leading-snug">{asset.name}</div>
+            <div className="text-xs text-slate-400">{asset.team || asset.sourceRoster}</div>
+          </div>
+          <AssetBadge asset={asset} compact />
+        </div>
+      ) : (
+        <div className="flex-1 text-sm text-slate-500">Empty</div>
+      )}
+    </div>
+  );
+}
+
+function RosterSection({ title, count, emptyText, assets }) {
+  return (
+    <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="font-semibold">{title}</div>
+        <div className="text-sm text-slate-400">{count}</div>
+      </div>
+      {assets.length ? (
+        <div className="grid gap-2 md:grid-cols-2">
+          {assets.map((asset) => (
+            <div key={asset.id} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-3">
+              <div>
+                <div className="font-semibold leading-snug">{asset.name}</div>
+                <div className="text-xs text-slate-400">{asset.team || asset.sourceRoster || asset.notes}</div>
+              </div>
+              <AssetBadge asset={asset} compact />
             </div>
           ))}
         </div>
-      </CardContent>
-    </Card>
+      ) : (
+        <div className="rounded-xl border border-dashed border-slate-800 p-4 text-sm text-slate-500">{emptyText}</div>
+      )}
+    </div>
   );
 }

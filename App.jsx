@@ -7,12 +7,13 @@ const ACCESS_ROLES = { TEAM: "team", ADMIN: "admin", SPECTATOR: "spectator" };
 const ADMIN_CODE = "BOAT";
 
 const FIREBASE_CONFIG = {
-  apiKey: "PASTE_FIREBASE_API_KEY_HERE",
-  authDomain: "PASTE_FIREBASE_AUTH_DOMAIN_HERE",
-  projectId: "PASTE_FIREBASE_PROJECT_ID_HERE",
-  storageBucket: "PASTE_FIREBASE_STORAGE_BUCKET_HERE",
-  messagingSenderId: "PASTE_FIREBASE_MESSAGING_SENDER_ID_HERE",
-  appId: "PASTE_FIREBASE_APP_ID_HERE",
+  apiKey: "AIzaSyDMkJu3lXERqYCodV-ZPheRqDTB9HYOvkM",
+  authDomain: "boat-dispersal-draft.firebaseapp.com",
+  projectId: "boat-dispersal-draft",
+  storageBucket: "boat-dispersal-draft.firebasestorage.app",
+  messagingSenderId: "857774208277",
+  appId: "1:857774208277:web:203c90873867804d24251c",
+  measurementId: "G-Y37Q7YL8D6"
 };
 const FIREBASE_DRAFT_PATH = "draftRooms/the-boat-default";
 

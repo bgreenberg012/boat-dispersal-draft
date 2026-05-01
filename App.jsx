@@ -38,6 +38,7 @@ function sanitizeRemoteState(state) {
     draftMode: state.draftMode || "snake",
     rounds: state.rounds || 35,
     picks: Array.isArray(state.picks) ? state.picks : [],
+    queues: state.queues && typeof state.queues === "object" ? state.queues : {},
   };
 }
 
@@ -327,6 +328,29 @@ function Button({ className = "", variant = "default", size = "default", disable
   );
 }
 
+function Tooltip({ text, children }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div
+      className="group relative inline-flex"
+      onMouseEnter={() => setVisible(true)}
+      onMouseLeave={() => setVisible(false)}
+      onFocus={() => setVisible(true)}
+      onBlur={() => setVisible(false)}
+    >
+      {children}
+      <div
+        className={`pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-max max-w-xs -translate-x-1/2 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-100 shadow-xl shadow-black/30 transition-all duration-150 ${
+          visible ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0"
+        }`}
+      >
+        <div className="absolute left-1/2 top-full h-2 w-2 -translate-x-1/2 -translate-y-1 rotate-45 border-b border-r border-slate-700 bg-slate-800" />
+        {text}
+      </div>
+    </div>
+  );
+}
+
 function parsePipeTable(text) {
   const [headerLine, ...lines] = text.trim().split("\n");
   const headers = headerLine.split("|");
@@ -425,6 +449,11 @@ function takeBestPlayer(players, predicate) {
   return player;
 }
 
+function getBenchPositionRank(pos) {
+  const order = { QB: 1, RB: 2, WR: 3, TE: 4, DEF: 5 };
+  return order[pos] || 99;
+}
+
 function buildLineupGroups(assets) {
   const players = sortRosterAssets(assets.filter((asset) => asset.type === "Player" && asset.position !== "DEF"));
   const defenses = sortRosterAssets(assets.filter((asset) => asset.type === "Player" && asset.position === "DEF"));
@@ -446,7 +475,11 @@ function buildLineupGroups(assets) {
 
   return {
     starters,
-    bench: sortRosterAssets([...players, ...defenses]),
+    bench: [...players, ...defenses].sort((a, b) => {
+      const posDiff = getBenchPositionRank(a.position) - getBenchPositionRank(b.position);
+      if (posDiff !== 0) return posDiff;
+      return compareAssetsBySortMode(a, b, "sfRank");
+    }),
     draftPicks,
     divisions,
   };
@@ -466,7 +499,7 @@ function buildDraftSlots(managers, rounds, draftMode) {
     order.forEach(({ manager, managerIndex }, i) => {
       slots.push({
         round: r,
-        pickInRound: draftMode === "snake" && r % 2 === 0 ? managers.length - i : i + 1,
+        pickInRound: i + 1,
         overall: slots.length + 1,
         manager,
         managerIndex,
@@ -512,6 +545,30 @@ function hasManagerDraftedDivision(picks, manager, asset) {
 
 function isAssetBlockedForManager(picks, manager, asset) {
   return hasManagerDraftedPlayer(picks, manager, asset) || hasManagerDraftedDivision(picks, manager, asset);
+}
+
+function canUserEditQueue(access, managerIndex) {
+  return access?.role === ACCESS_ROLES.TEAM && access.managerIndex === managerIndex;
+}
+
+function canUserViewQueue(access) {
+  return access?.role === ACCESS_ROLES.TEAM && Number.isInteger(access.managerIndex);
+}
+
+function getMainViewColumnCount(canViewQueue) {
+  return canViewQueue ? 4 : 3;
+}
+
+function getQueueForManager(queues, managerIndex) {
+  return Array.isArray(queues?.[managerIndex]) ? queues[managerIndex] : [];
+}
+
+function normalizeQueuesAfterDraft(queues, draftedAssetId) {
+  const nextQueues = {};
+  Object.entries(queues || {}).forEach(([managerIndex, queue]) => {
+    nextQueues[managerIndex] = Array.isArray(queue) ? queue.filter((item) => item.asset?.id !== draftedAssetId) : [];
+  });
+  return nextQueues;
 }
 
 function canUserDraftForCurrentSlot(access, currentSlot) {
@@ -568,6 +625,30 @@ function runSelfTests() {
   console.assert(typeof isFirebaseConfigured() === "boolean", "Firebase configuration check should return a boolean");
   console.assert(sanitizeRemoteState({ managers: ["A"], picks: [] }).managers[0] === "A", "Remote state sanitizer should preserve managers");
   console.assert(sanitizeRemoteState({ filter: "QB", mainView: "board", selectedTeamIndex: 2 }).filter === undefined, "Remote state should not include personal UI state");
+  console.assert(Array.isArray(getQueueForManager({ 1: [{ asset: { id: "a" } }] }, 1)), "Queue helper should return manager queue arrays");
+  console.assert(canUserEditQueue({ role: ACCESS_ROLES.ADMIN }, 0) === false, "Admin should not be able to edit private team queues");
+  console.assert(canUserViewQueue({ role: ACCESS_ROLES.TEAM, managerIndex: 0 }) === true, "Team users should be able to view their own queue");
+  console.assert(canUserViewQueue({ role: ACCESS_ROLES.ADMIN }) === false, "Admin should not be able to view team queues");
+  console.assert(getMainViewColumnCount(true) === 4 && getMainViewColumnCount(false) === 3, "Main view should show roster tab plus optional queue tab");
+  console.assert(
+    (function () {
+      const managers = ["A", "B"];
+      const picks = [{ manager: "Old", managerIndex: 1, asset: { id: "1" } }];
+      const display = Number.isInteger(picks[0].managerIndex) ? managers[picks[0].managerIndex] : picks[0].manager;
+      return display === "B";
+    })(),
+    "Draft results should reflect updated manager name via managerIndex"
+  );
+  console.assert(
+    (function () {
+      const managers = ["A", "Renamed Team"];
+      const pick = { manager: "Old Team", managerIndex: 1 };
+      const exportedManager = Number.isInteger(pick.managerIndex) && managers?.[pick.managerIndex] ? managers[pick.managerIndex] : pick.manager;
+      return exportedManager === "Renamed Team";
+    })(),
+    "CSV export should reflect updated manager name via managerIndex"
+  );
+  console.assert(normalizeQueuesAfterDraft({ 0: [{ asset: { id: "a" } }, { asset: { id: "b" } }] }, "a")[0].length === 1, "Drafted asset should be removed from queues");
   const testLineup = buildLineupGroups([
     { name: "QB1", type: "Player", position: "QB" },
     { name: "RB1", type: "Player", position: "RB" },
@@ -609,6 +690,8 @@ export default function DynastyDispersalDraftTool() {
   const [adminCode, setAdminCode] = useState("");
   const [accessError, setAccessError] = useState("");
   const [activeRosterTab, setActiveRosterTab] = useState(0);
+  const [queues, setQueues] = useState({});
+  const [activeQueueTab, setActiveQueueTab] = useState(0);
 
   const draftSlots = useMemo(() => buildDraftSlots(managers, rounds, draftMode), [managers, rounds, draftMode]);
   const currentSlot = draftSlots[picks.length];
@@ -631,6 +714,7 @@ export default function DynastyDispersalDraftTool() {
             draftMode: "snake",
             rounds: 35,
             picks: [],
+            queues: {},
           });
           await setDoc(remoteDocRef, { ...initialState, updatedAt: serverTimestamp() }, { merge: true });
           remoteLoadedRef.current = true;
@@ -645,6 +729,7 @@ export default function DynastyDispersalDraftTool() {
         setDraftMode(data.draftMode);
         setRounds(data.rounds);
         setPicks(data.picks);
+        setQueues(data.queues);
         remoteLoadedRef.current = true;
         setSyncMessage("Live synced with Firebase");
       },
@@ -663,7 +748,7 @@ export default function DynastyDispersalDraftTool() {
       return;
     }
 
-    const state = sanitizeRemoteState({ assets, managers, draftMode, rounds, picks });
+    const state = sanitizeRemoteState({ assets, managers, draftMode, rounds, picks, queues });
     const timeout = window.setTimeout(async () => {
       try {
         await setDoc(remoteDocRef, { ...state, updatedAt: serverTimestamp() }, { merge: true });
@@ -674,7 +759,7 @@ export default function DynastyDispersalDraftTool() {
       }
     }, 300);
     return () => window.clearTimeout(timeout);
-  }, [assets, managers, draftMode, rounds, picks, remoteDocRef]);
+  }, [assets, managers, draftMode, rounds, picks, queues, remoteDocRef]);
 
   const filteredAssets = availableAssets.filter((asset) => {
     const matchesType = filter === "All" || asset.type === filter || asset.position === filter;
@@ -688,6 +773,7 @@ export default function DynastyDispersalDraftTool() {
   useEffect(() => {
     if (access?.role === ACCESS_ROLES.TEAM && Number.isInteger(access.managerIndex)) {
       setActiveRosterTab(access.managerIndex);
+      setActiveQueueTab(access.managerIndex);
     }
   }, [access]);
 
@@ -712,7 +798,7 @@ export default function DynastyDispersalDraftTool() {
         if (isAssetBlockedForManager(remotePicks, slot.manager, asset)) return;
 
         transaction.set(remoteDocRef, {
-          ...sanitizeRemoteState({ ...remoteData, picks: [...remotePicks, { ...slot, asset, timestamp: new Date().toISOString() }] }),
+          ...sanitizeRemoteState({ ...remoteData, picks: [...remotePicks, { ...slot, asset, timestamp: new Date().toISOString() }], queues: normalizeQueuesAfterDraft(remoteData.queues, asset.id) }),
           updatedAt: serverTimestamp(),
         }, { merge: true });
       });
@@ -758,6 +844,7 @@ export default function DynastyDispersalDraftTool() {
 
   function clearSavedDraft() {
     setPicks([]);
+    setQueues({});
     setAssets(parsePipeTable(RAW_ASSETS));
     setManagers(DEFAULT_MANAGERS);
     setDraftMode("snake");
@@ -794,7 +881,18 @@ export default function DynastyDispersalDraftTool() {
   function exportResultsCsv() {
     exportCsv("dispersal-draft-results.csv", [
       ["Overall", "Round", "Pick", "Manager", "Asset", "Type", "Position", "NFL Team", "Source Roster", "Notes"],
-      ...picks.map((p) => [p.overall, p.round, p.pickInRound, p.manager, p.asset.name, p.asset.type, p.asset.position, p.asset.team, p.asset.sourceRoster, p.asset.notes]),
+      ...picks.map((p) => [
+        p.overall,
+        p.round,
+        p.pickInRound,
+        Number.isInteger(p.managerIndex) && managers?.[p.managerIndex] ? managers[p.managerIndex] : p.manager,
+        p.asset.name,
+        p.asset.type,
+        p.asset.position,
+        p.asset.team,
+        p.asset.sourceRoster,
+        p.asset.notes,
+      ]),
     ]);
   }
 
@@ -814,8 +912,42 @@ export default function DynastyDispersalDraftTool() {
       const parsed = parseAssetsCsv(String(e.target?.result || ""));
       if (parsed.length) setAssets(parsed);
       setPicks([]);
+      setQueues({});
     };
     reader.readAsText(file);
+  }
+
+  function addToQueue(managerIndex, asset) {
+    if (!canUserEditQueue(access, managerIndex)) return;
+    setQueues((prev) => {
+      const currentQueue = getQueueForManager(prev, managerIndex);
+      if (currentQueue.some((item) => item.asset?.id === asset.id)) return prev;
+      return {
+        ...prev,
+        [managerIndex]: [...currentQueue, { id: makeId(), asset, addedAt: new Date().toISOString() }],
+      };
+    });
+  }
+
+  function removeFromQueue(managerIndex, queueItemId) {
+    if (!canUserEditQueue(access, managerIndex)) return;
+    setQueues((prev) => ({
+      ...prev,
+      [managerIndex]: getQueueForManager(prev, managerIndex).filter((item) => item.id !== queueItemId),
+    }));
+  }
+
+  function moveQueueItem(managerIndex, queueItemId, direction) {
+    if (!canUserEditQueue(access, managerIndex)) return;
+    setQueues((prev) => {
+      const currentQueue = [...getQueueForManager(prev, managerIndex)];
+      const index = currentQueue.findIndex((item) => item.id === queueItemId);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= currentQueue.length) return prev;
+      const [item] = currentQueue.splice(index, 1);
+      currentQueue.splice(nextIndex, 0, item);
+      return { ...prev, [managerIndex]: currentQueue };
+    });
   }
 
   if (!firebaseEnabled) {
@@ -881,7 +1013,7 @@ export default function DynastyDispersalDraftTool() {
         <header className="rounded-3xl border border-slate-700 bg-slate-900 p-6 shadow-lg shadow-black/20">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-sm font-medium text-slate-300"><Icon>🏆</Icon> The BOAT Dynasty dispersal draft board</div>
+              <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-slate-800 px-3 py-1 text-sm font-medium text-slate-300"><Icon>🏆</Icon> The BOAT</div>
               <h1 className="text-3xl font-bold tracking-tight">The BOAT Dispersal Draft Tool</h1>
               <p className="mt-2 max-w-2xl text-slate-300">Draft players, rookie picks, and division slots. Duplicate player copies are allowed, but one replacement team cannot draft both copies or more than one division slot.</p>
             </div>
@@ -911,16 +1043,17 @@ export default function DynastyDispersalDraftTool() {
           )}
 
           <main className="space-y-4">
-            <MainViewHeader currentSlot={currentSlot} userCanDraftCurrentPick={userCanDraftCurrentPick} mainView={mainView} setMainView={setMainView} showSetupPanel={showSetupPanel} setShowSetupPanel={setShowSetupPanel} />
+            <MainViewHeader currentSlot={currentSlot} userCanDraftCurrentPick={userCanDraftCurrentPick} mainView={mainView} setMainView={setMainView} showSetupPanel={showSetupPanel} setShowSetupPanel={setShowSetupPanel} canViewQueue={canUserViewQueue(access)} />
             {mainView === "board" ? (
               <DraftBoard managers={managers} rows={draftBoardRows} currentSlot={currentSlot} draftMode={draftMode} showSetupPanel={showSetupPanel} />
+            ) : mainView === "queue" && canUserViewQueue(access) ? (
+              <DraftQueue managers={managers} queues={queues} activeQueueTab={activeQueueTab} setActiveQueueTab={setActiveQueueTab} availableAssets={availableAssets} sortMode={sortMode} setSortMode={setSortMode} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} filterOptions={filterOptions} access={access} addToQueue={addToQueue} removeFromQueue={removeFromQueue} moveQueueItem={moveQueueItem} showSetupPanel={showSetupPanel} />
+            ) : mainView === "rosters" ? (
+              <Rosters rosterByManager={rosterByManager} activeRosterTab={activeRosterTab} setActiveRosterTab={setActiveRosterTab} compact={false} />
             ) : (
               <AvailablePool sortedAssets={sortedAssets} filteredAssets={filteredAssets} sortMode={sortMode} setSortMode={setSortMode} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} filterOptions={filterOptions} currentSlot={currentSlot} picks={picks} userCanDraftCurrentPick={userCanDraftCurrentPick} draftAsset={draftAsset} showSetupPanel={showSetupPanel} />
             )}
-            <div className="grid gap-4 xl:grid-cols-2">
-              <DraftResults picks={picks} exportMessage={exportMessage} exportAvailableCsv={exportAvailableCsv} exportResultsCsv={exportResultsCsv} />
-              <Rosters rosterByManager={rosterByManager} activeRosterTab={activeRosterTab} setActiveRosterTab={setActiveRosterTab} />
-            </div>
+            <DraftResults picks={picks} managers={managers} exportMessage={exportMessage} exportAvailableCsv={exportAvailableCsv} exportResultsCsv={exportResultsCsv} />
           </main>
         </div>
       </div>
@@ -974,7 +1107,7 @@ function SetupCard(props) {
         <div className="rounded-2xl bg-emerald-950/50 p-4">
           <div className="text-sm font-medium text-emerald-300">On the clock</div>
           <div className="mt-1 text-xl font-bold text-emerald-100">{currentSlot ? currentSlot.manager : "Draft complete"}</div>
-          <div className="text-sm text-emerald-400">{currentSlot ? `Pick ${currentSlot.overall} · Round ${currentSlot.round}.${currentSlot.pickInRound}` : "All draft slots are filled."}</div>
+          <div className="text-sm text-emerald-400">{currentSlot ? `Pick ${currentSlot.round}.${currentSlot.pickInRound}` : "All draft slots are filled."}</div>
           {currentSlot && !userCanDraftCurrentPick && (
             <div className="mt-2 rounded-xl border border-amber-800 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">
               You are in {getAccessLabel(access, managers)} mode. Only {currentSlot.manager} or an admin can make this pick.
@@ -1047,7 +1180,7 @@ function AssetsAdminCard({ userCanEditSetup, newAsset, setNewAsset, addAsset, ha
   );
 }
 
-function MainViewHeader({ currentSlot, userCanDraftCurrentPick, mainView, setMainView, showSetupPanel, setShowSetupPanel }) {
+function MainViewHeader({ currentSlot, userCanDraftCurrentPick, mainView, setMainView, showSetupPanel, setShowSetupPanel, canViewQueue }) {
   return (
     <Card className="rounded-3xl shadow-lg shadow-black/20">
       <CardContent className="p-3">
@@ -1057,15 +1190,17 @@ function MainViewHeader({ currentSlot, userCanDraftCurrentPick, mainView, setMai
             <div className="mt-1 inline-flex flex-wrap items-center gap-2 rounded-2xl border border-emerald-700 bg-emerald-950/40 px-3 py-2 text-sm">
               <span className="font-semibold text-emerald-300">On the clock:</span>
               <span className="font-bold text-emerald-100">{currentSlot ? currentSlot.manager : "Draft complete"}</span>
-              {currentSlot && <span className="text-emerald-400">Pick {currentSlot.overall} · R{currentSlot.round}.{currentSlot.pickInRound}</span>}
+              {currentSlot && <span className="text-emerald-400">Pick {`${currentSlot.round}.${currentSlot.pickInRound}`}</span>}
               {currentSlot && !userCanDraftCurrentPick && <span className="rounded-full bg-amber-950/60 px-2 py-0.5 text-xs font-medium text-amber-200">Locked for you</span>}
             </div>
           </div>
           {!showSetupPanel && <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setShowSetupPanel(true)}>Show setup</Button>}
         </div>
-        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-950 p-1">
+        <div className={`${canViewQueue ? "grid-cols-4" : "grid-cols-3"} grid gap-2 rounded-2xl bg-slate-950 p-1`}>
           <button className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${mainView === "pool" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-black/20" : "text-slate-400 hover:bg-slate-700"}`} onClick={() => setMainView("pool")}>Available Pool</button>
           <button className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${mainView === "board" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-black/20" : "text-slate-400 hover:bg-slate-700"}`} onClick={() => setMainView("board")}>Draft Board</button>
+          <button className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${mainView === "rosters" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-black/20" : "text-slate-400 hover:bg-slate-700"}`} onClick={() => setMainView("rosters")}>Rosters</button>
+          {canViewQueue && <button className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${mainView === "queue" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-black/20" : "text-slate-400 hover:bg-slate-700"}`} onClick={() => setMainView("queue")}>Queue</button>}
         </div>
       </CardContent>
     </Card>
@@ -1100,8 +1235,10 @@ function DraftBoard({ managers, rows, currentSlot, draftMode, showSetupPanel }) 
                       {slot ? (
                         <div className={`min-h-24 rounded-2xl border border-slate-700 p-3 ${pick ? "bg-slate-950 shadow-lg shadow-black/20" : currentSlot?.overall === slot.overall ? "border-emerald-500 bg-emerald-950/50" : "bg-slate-800/70"}`}>
                           <div className="mb-2 flex items-center justify-between gap-2 text-xs text-slate-400">
-                            <span>Pick {slot.overall}</span>
-                            <span>R{slot.round}.{slot.pickInRound}</span>
+                            <Tooltip text={`Overall pick ${slot.overall}`}>
+                              <span className="cursor-help">Pick {`${slot.round}.${slot.pickInRound}`}</span>
+                            </Tooltip>
+                            
                           </div>
                           {pick ? (
                             <div>
@@ -1174,7 +1311,103 @@ function AvailablePool(props) {
   );
 }
 
-function DraftResults({ picks, exportMessage, exportAvailableCsv, exportResultsCsv }) {
+function DraftQueue({ managers, queues, activeQueueTab, setActiveQueueTab, availableAssets, sortMode, setSortMode, query, setQuery, filter, setFilter, filterOptions, access, addToQueue, removeFromQueue, moveQueueItem, showSetupPanel }) {
+  const activeManagerIndex = Number.isInteger(access?.managerIndex) ? access.managerIndex : activeQueueTab;
+  const activeManager = managers[activeManagerIndex] || managers[0] || "Team";
+  const activeQueue = getQueueForManager(queues, activeManagerIndex);
+  const canEditActiveQueue = canUserEditQueue(access, activeManagerIndex);
+  const queuedIds = new Set(activeQueue.map((item) => item.asset?.id));
+  const filteredAssets = availableAssets.filter((asset) => {
+    const matchesType = filter === "All" || asset.type === filter || asset.position === filter;
+    const haystack = `${asset.name} ${asset.type} ${asset.position} ${asset.team} ${asset.sourceRoster} ${asset.notes}`.toLowerCase();
+    return matchesType && haystack.includes(query.toLowerCase());
+  });
+  const sortedAssets = [...filteredAssets].sort((a, b) => compareAssetsBySortMode(a, b, sortMode));
+
+  return (
+    <Card className="rounded-3xl shadow-lg shadow-black/20">
+      <CardContent className="p-5">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="flex items-center gap-2 font-semibold"><Icon>📌</Icon> Draft queue</div>
+            <p className="mt-1 text-sm text-slate-400">Add players or picks your team wants to target next. Queues sync live through Firebase.</p>
+          </div>
+          <div className="text-sm text-slate-400">Viewing: {activeManager}</div>
+        </div>
+
+        <div className="mb-4 rounded-2xl border border-slate-700 bg-slate-950 p-3 text-sm text-slate-300">
+          This queue is private to {activeManager}. Admins and spectators cannot view team queues.
+        </div>
+
+        <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
+          <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="font-semibold">{activeManager}'s queue</div>
+              <div className="text-sm text-slate-400">{activeQueue.length}</div>
+            </div>
+            <div className="space-y-2">
+              {activeQueue.map((item, index) => (
+                <div key={item.id} className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-xs font-semibold text-slate-500">#{index + 1}</div>
+                      <div className="break-words font-semibold leading-snug">{item.asset?.name}</div>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-slate-400"><AssetBadge asset={item.asset} compact /><span>{item.asset?.team || item.asset?.sourceRoster}</span></div>
+                    </div>
+                    {canEditActiveQueue && (
+                      <div className="flex shrink-0 gap-1">
+                        <Button variant="outline" size="sm" className="rounded-lg px-2" onClick={() => moveQueueItem(activeManagerIndex, item.id, -1)} disabled={index === 0}>↑</Button>
+                        <Button variant="outline" size="sm" className="rounded-lg px-2" onClick={() => moveQueueItem(activeManagerIndex, item.id, 1)} disabled={index === activeQueue.length - 1}>↓</Button>
+                        <Button variant="outline" size="sm" className="rounded-lg px-2 text-red-200" onClick={() => removeFromQueue(activeManagerIndex, item.id)}>×</Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {!activeQueue.length && <div className="rounded-xl border border-dashed border-slate-800 p-4 text-sm text-slate-500">No queued assets yet.</div>}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
+            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="font-semibold">Add from available pool</div>
+              <div className="flex flex-wrap gap-2">
+                <select className={inputClass} value={sortMode} onChange={(e) => setSortMode(e.target.value)}>
+                  <option value="sfRank">Sort: SF Dynasty Rank</option>
+                  <option value="alpha">Sort: Alphabetical</option>
+                </select>
+                <input className={`w-full md:w-64 ${inputClass}`} placeholder="Search queue targets..." value={query} onChange={(e) => setQuery(e.target.value)} />
+                <select className={inputClass} value={filter} onChange={(e) => setFilter(e.target.value)}>
+                  {filterOptions.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className={showSetupPanel ? "max-h-[520px] overflow-auto rounded-2xl border border-slate-800" : "max-h-[680px] overflow-auto rounded-2xl border border-slate-800"}>
+              <table className="w-full text-left text-sm">
+                <thead className={tableHeadClass}>
+                  <tr><th className="p-3">Rank</th><th>Asset</th><th>Type</th><th></th></tr>
+                </thead>
+                <tbody>
+                  {sortedAssets.map((asset) => (
+                    <tr key={asset.id} className="border-t border-slate-800 bg-slate-900 hover:bg-slate-800">
+                      <td className="p-3 text-sm font-semibold text-slate-400">{getSuperflexRank(asset) === 9999 ? "—" : getSuperflexRank(asset)}</td>
+                      <td className="p-3"><div className="font-semibold">{asset.name}</div><div className="text-xs text-slate-400">{asset.team || asset.sourceRoster} · {asset.notes}</div></td>
+                      <td><AssetBadge asset={asset} /></td>
+                      <td className="p-3 text-right"><Button size="sm" className="rounded-xl" onClick={() => addToQueue(activeManagerIndex, asset)} disabled={!canEditActiveQueue || queuedIds.has(asset.id)}>{queuedIds.has(asset.id) ? "Queued" : "Add"}</Button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!sortedAssets.length && <div className="p-8 text-center text-slate-400">No matching available assets.</div>}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DraftResults({ picks, managers, exportMessage, exportAvailableCsv, exportResultsCsv }) {
   return (
     <Card className="rounded-3xl shadow-lg shadow-black/20">
       <CardContent className="p-5">
@@ -1184,8 +1417,12 @@ function DraftResults({ picks, exportMessage, exportAvailableCsv, exportResultsC
             {exportMessage && <div className="mt-1 text-xs text-cyan-300">{exportMessage}</div>}
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="rounded-xl" onClick={exportAvailableCsv}><span className="mr-2">↓</span> Remaining</Button>
-            <Button size="sm" className="rounded-xl" onClick={exportResultsCsv}><span className="mr-2">↓</span> Results</Button>
+            <Tooltip text="Download a CSV of all remaining undrafted assets">
+              <Button variant="outline" size="sm" className="rounded-xl" onClick={exportAvailableCsv}><span className="mr-2">↓</span> Remaining</Button>
+            </Tooltip>
+            <Tooltip text="Download a CSV of all completed draft picks/results">
+              <Button size="sm" className="rounded-xl" onClick={exportResultsCsv}><span className="mr-2">↓</span> Results</Button>
+            </Tooltip>
           </div>
         </div>
         <div className="max-h-[390px] overflow-auto rounded-2xl border border-slate-700">
@@ -1195,7 +1432,7 @@ function DraftResults({ picks, exportMessage, exportAvailableCsv, exportResultsC
               {picks.map((p) => (
                 <tr key={`${p.overall}-${p.asset.id}`} className="border-t border-slate-800 bg-slate-900">
                   <td className="p-3 font-medium">{p.overall}<div className="text-xs text-slate-400">R{p.round}.{p.pickInRound}</div></td>
-                  <td>{p.manager}</td>
+                  <td>{Number.isInteger(p.managerIndex) && managers?.[p.managerIndex] ? managers[p.managerIndex] : p.manager}</td>
                   <td><div className="font-semibold">{p.asset.name}</div><div className="mt-1 flex items-center gap-2 text-xs text-slate-400"><AssetBadge asset={p.asset} compact /> <span>{p.asset.team}</span></div></td>
                 </tr>
               ))}
@@ -1208,7 +1445,7 @@ function DraftResults({ picks, exportMessage, exportAvailableCsv, exportResultsC
   );
 }
 
-function Rosters({ rosterByManager, activeRosterTab, setActiveRosterTab }) {
+function Rosters({ rosterByManager, activeRosterTab, setActiveRosterTab, compact = false }) {
   const activeRoster = rosterByManager[activeRosterTab] || rosterByManager[0];
   const groups = buildLineupGroups(activeRoster?.assets || []);
 
@@ -1241,20 +1478,34 @@ function Rosters({ rosterByManager, activeRosterTab, setActiveRosterTab }) {
         ) : (
           <div className="space-y-4">
             <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <div className="font-semibold">{activeRoster.manager}</div>
-                <div className="text-xs text-slate-400">1QB · 2RB · 2WR · 1TE · 2 FLEX · 1 SUPERFLEX · 1 DEF</div>
+              <div className="mb-3 flex items-center justify-between">
+                <div className="font-semibold">Starters</div>
+                <div className="text-sm text-slate-400">{groups.starters.length}</div>
               </div>
-              <div className="grid gap-2 md:grid-cols-2">
-                {groups.starters.map((entry, index) => (
-                  <LineupSlot key={`${entry.slot}-${index}`} slot={entry.slot} asset={entry.asset} />
-                ))}
+              <div className="mb-2 text-xs text-slate-400">{activeRoster.manager} · 1QB · 2RB · 2WR · 1TE · 2 FLEX · 1 SUPERFLEX · 1 DEF</div>
+              <div className={compact ? "grid gap-2" : "grid gap-2 md:grid-cols-2"}>
+                {/* Left Column */}
+                <div className="space-y-2">
+                  {groups.starters
+                    .filter((e, i) => [0,1,2,3,4,5].includes(i))
+                    .map((entry, index) => (
+                      <LineupSlot key={`left-${entry.slot}-${index}`} slot={entry.slot} asset={entry.asset} compact={compact} />
+                    ))}
+                </div>
+                {/* Right Column */}
+                <div className="space-y-2">
+                  {groups.starters
+                    .filter((e, i) => [6,7,8,9].includes(i))
+                    .map((entry, index) => (
+                      <LineupSlot key={`right-${entry.slot}-${index}`} slot={entry.slot} asset={entry.asset} compact={compact} />
+                    ))}
+                </div>
               </div>
             </div>
 
-            <RosterSection title="Bench" count={groups.bench.length} emptyText="No bench players yet." assets={groups.bench} />
-            <RosterSection title="Draft picks" count={groups.draftPicks.length} emptyText="No draft picks yet." assets={groups.draftPicks} />
-            <RosterSection title="Division" count={groups.divisions.length} emptyText="No division slot yet." assets={groups.divisions} />
+            <RosterSection title="Bench" count={groups.bench.length} emptyText="No bench players yet." assets={groups.bench} compact={compact} />
+            <RosterSection title="Draft picks" count={groups.draftPicks.length} emptyText="No draft picks yet." assets={groups.draftPicks} compact={compact} />
+            <RosterSection title="Division" count={groups.divisions.length} emptyText="No division slot yet." assets={groups.divisions} compact={compact} />
           </div>
         )}
       </CardContent>
@@ -1262,26 +1513,26 @@ function Rosters({ rosterByManager, activeRosterTab, setActiveRosterTab }) {
   );
 }
 
-function LineupSlot({ slot, asset }) {
+function LineupSlot({ slot, asset, compact = false }) {
   return (
-    <div className="flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-3">
-      <div className="min-w-24 text-xs font-bold tracking-wide text-slate-400">{slot}</div>
+    <div className={compact ? "rounded-2xl border border-slate-800 bg-slate-900 p-3" : "flex min-h-16 items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-3"}>
+      <div className={compact ? "mb-2 inline-flex rounded-full bg-slate-800 px-2 py-1 text-[11px] font-bold tracking-wide text-slate-300" : "min-w-24 text-xs font-bold tracking-wide text-slate-400"}>{slot}</div>
       {asset ? (
-        <div className="flex flex-1 items-center justify-between gap-3">
-          <div>
-            <div className="font-semibold leading-snug">{asset.name}</div>
+        <div className={compact ? "space-y-2" : "flex flex-1 items-center justify-between gap-3"}>
+          <div className="min-w-0">
+            <div className="break-words font-semibold leading-snug">{asset.name}</div>
             <div className="text-xs text-slate-400">{asset.team || asset.sourceRoster}</div>
           </div>
-          <AssetBadge asset={asset} compact />
+          <div className="flex shrink-0"><AssetBadge asset={asset} compact /></div>
         </div>
       ) : (
-        <div className="flex-1 text-sm text-slate-500">Empty</div>
+        <div className="text-sm text-slate-500">Empty</div>
       )}
     </div>
   );
 }
 
-function RosterSection({ title, count, emptyText, assets }) {
+function RosterSection({ title, count, emptyText, assets, compact = false }) {
   return (
     <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -1289,14 +1540,14 @@ function RosterSection({ title, count, emptyText, assets }) {
         <div className="text-sm text-slate-400">{count}</div>
       </div>
       {assets.length ? (
-        <div className="grid gap-2 md:grid-cols-2">
+        <div className={compact ? "grid gap-2" : "grid gap-2 md:grid-cols-2"}>
           {assets.map((asset) => (
-            <div key={asset.id} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-3">
-              <div>
-                <div className="font-semibold leading-snug">{asset.name}</div>
+            <div key={asset.id} className={compact ? "rounded-2xl border border-slate-800 bg-slate-900 p-3" : "flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-3"}>
+              <div className="min-w-0">
+                <div className="break-words font-semibold leading-snug">{asset.name}</div>
                 <div className="text-xs text-slate-400">{asset.team || asset.sourceRoster || asset.notes}</div>
               </div>
-              <AssetBadge asset={asset} compact />
+              <div className={compact ? "mt-2 flex" : "flex shrink-0"}><AssetBadge asset={asset} compact /></div>
             </div>
           ))}
         </div>

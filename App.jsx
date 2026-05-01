@@ -894,6 +894,7 @@ export default function DynastyDispersalDraftTool() {
   const firebaseEnabled = Boolean(remoteDocRef);
   const remoteLoadedRef = useRef(false);
   const skipNextRemoteSaveRef = useRef(false);
+  const suppressRemoteSaveRef = useRef(false);
 
   const [assets, setAssets] = useState(() => parsePipeTable(RAW_ASSETS));
   const [managers, setManagers] = useState(DEFAULT_MANAGERS);
@@ -917,6 +918,7 @@ export default function DynastyDispersalDraftTool() {
   const [activeRosterTab, setActiveRosterTab] = useState(0);
   const [queues, setQueues] = useState({});
   const [activeQueueTab, setActiveQueueTab] = useState(0);
+  const [confirmAction, setConfirmAction] = useState(null);
 
   const draftSlots = useMemo(() => buildDraftSlots(managers, rounds, draftMode), [managers, rounds, draftMode]);
   const currentSlot = draftSlots[picks.length];
@@ -969,7 +971,7 @@ export default function DynastyDispersalDraftTool() {
   }, [remoteDocRef]);
 
   useEffect(() => {
-    if (!remoteDocRef || !remoteLoadedRef.current) return;
+    if (!remoteDocRef || !remoteLoadedRef.current || suppressRemoteSaveRef.current) return;
     if (skipNextRemoteSaveRef.current) {
       skipNextRemoteSaveRef.current = false;
       return;
@@ -1075,23 +1077,86 @@ export default function DynastyDispersalDraftTool() {
     setAccessError("");
   }
 
-  function resetDraft() {
-    setPicks([]);
+  function requestResetDraft() {
+    if (!userCanEditSetup) return;
+    setConfirmAction({
+      type: "reset",
+      title: "Reset draft?",
+      body: "This will clear all picks and team queues, but keep teams, assets, access codes, and draft settings.",
+      confirmLabel: "Reset draft",
+    });
   }
 
-  function clearSavedDraft() {
+  async function resetDraft() {
+    if (!userCanEditSetup || !remoteDocRef) return;
+    const nextState = sanitizeRemoteState({ assets, managers, draftMode, rounds, picks: [], queues: {}, teamCodes });
+    suppressRemoteSaveRef.current = true;
+    skipNextRemoteSaveRef.current = true;
     setPicks([]);
     setQueues({});
-    setTeamCodes(generateTeamCodes(DEFAULT_MANAGERS.length));
-    setAssets(parsePipeTable(RAW_ASSETS));
-    setManagers(DEFAULT_MANAGERS);
-    setDraftMode("snake");
-    setRounds(35);
+
+    try {
+      await setDoc(remoteDocRef, { ...nextState, updatedAt: serverTimestamp() });
+      setSyncMessage("Draft reset");
+    } catch (error) {
+      console.warn("Unable to reset draft", error);
+      setSyncMessage("Draft reset failed");
+    } finally {
+      window.setTimeout(() => {
+        suppressRemoteSaveRef.current = false;
+      }, 500);
+    }
+  }
+
+  function requestClearSavedDraft() {
+    if (!userCanEditSetup) return;
+    setConfirmAction({
+      type: "clear",
+      title: "Clear draft and restore defaults?",
+      body: "This will delete all picks, queues, renamed teams, access codes, imported assets, and draft settings.",
+      confirmLabel: "Clear everything",
+    });
+  }
+
+  async function clearSavedDraft() {
+    if (!userCanEditSetup || !remoteDocRef) return;
+
+    const nextState = sanitizeRemoteState({
+      assets: parsePipeTable(RAW_ASSETS),
+      managers: DEFAULT_MANAGERS,
+      draftMode: "snake",
+      rounds: 35,
+      picks: [],
+      queues: {},
+      teamCodes: generateTeamCodes(DEFAULT_MANAGERS.length),
+    });
+
+    suppressRemoteSaveRef.current = true;
+    skipNextRemoteSaveRef.current = true;
+    setPicks(nextState.picks);
+    setQueues(nextState.queues);
+    setTeamCodes(nextState.teamCodes);
+    setAssets(nextState.assets);
+    setManagers(nextState.managers);
+    setDraftMode(nextState.draftMode);
+    setRounds(nextState.rounds);
     setFilter("All");
     setMainView("pool");
     setSortMode("sfRank");
     setShowSetupPanel(true);
     setSelectedTeamIndex(0);
+
+    try {
+      await setDoc(remoteDocRef, { ...nextState, updatedAt: serverTimestamp() });
+      setSyncMessage("Draft restored to defaults");
+    } catch (error) {
+      console.warn("Unable to restore defaults", error);
+      setSyncMessage("Restore defaults failed");
+    } finally {
+      window.setTimeout(() => {
+        suppressRemoteSaveRef.current = false;
+      }, 500);
+    }
   }
 
   function resetTeamCodes() {
@@ -1281,7 +1346,7 @@ export default function DynastyDispersalDraftTool() {
         <div className={showSetupPanel ? "grid gap-4 lg:grid-cols-[360px_1fr]" : "grid gap-4 lg:grid-cols-1"}>
           {showSetupPanel && (
             <aside className="space-y-4">
-              <SetupCard managers={managers} setManagers={setManagers} teamCodes={teamCodes} resetTeamCodes={resetTeamCodes} rounds={rounds} setRounds={setRounds} draftMode={draftMode} setDraftMode={setDraftMode} currentSlot={currentSlot} access={access} userCanDraftCurrentPick={userCanDraftCurrentPick} userCanEditSetup={userCanEditSetup} picks={picks} undoPick={() => setPicks((prev) => prev.slice(0, -1))} resetDraft={resetDraft} clearSavedDraft={clearSavedDraft} setShowSetupPanel={setShowSetupPanel} />
+              <SetupCard managers={managers} setManagers={setManagers} teamCodes={teamCodes} resetTeamCodes={resetTeamCodes} rounds={rounds} setRounds={setRounds} draftMode={draftMode} setDraftMode={setDraftMode} currentSlot={currentSlot} access={access} userCanDraftCurrentPick={userCanDraftCurrentPick} userCanEditSetup={userCanEditSetup} picks={picks} undoPick={() => setPicks((prev) => prev.slice(0, -1))} resetDraft={requestResetDraft} clearSavedDraft={requestClearSavedDraft} setShowSetupPanel={setShowSetupPanel} />
               <AssetsAdminCard userCanEditSetup={userCanEditSetup} newAsset={newAsset} setNewAsset={setNewAsset} addAsset={addAsset} handleCsvUpload={handleCsvUpload} setShowSetupPanel={setShowSetupPanel} />
             </aside>
           )}
@@ -1299,6 +1364,35 @@ export default function DynastyDispersalDraftTool() {
             )}
             <DraftResults picks={picks} managers={managers} exportMessage={exportMessage} exportAvailableCsv={exportAvailableCsv} exportResultsCsv={exportResultsCsv} />
           </main>
+        </div>
+        {confirmAction && (
+          <ConfirmModal
+            title={confirmAction.title}
+            body={confirmAction.body}
+            confirmLabel={confirmAction.confirmLabel}
+            onCancel={() => setConfirmAction(null)}
+            onConfirm={async () => {
+              const actionType = confirmAction.type;
+              setConfirmAction(null);
+              if (actionType === "reset") await resetDraft();
+              if (actionType === "clear") await clearSavedDraft();
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConfirmModal({ title, body, confirmLabel, onCancel, onConfirm }) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
+      <div className="w-full max-w-md rounded-3xl border border-slate-700 bg-slate-900 p-6 text-slate-100 shadow-2xl shadow-black/40">
+        <div className="mb-2 text-xl font-bold">{title}</div>
+        <p className="mb-5 text-sm text-slate-300">{body}</p>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" className="rounded-xl" onClick={onCancel}>Cancel</Button>
+          <Button className="rounded-xl bg-red-500 text-white hover:bg-red-400" onClick={onConfirm}>{confirmLabel}</Button>
         </div>
       </div>
     </div>
@@ -1379,7 +1473,7 @@ function SetupCard(props) {
           <Button variant="outline" className="rounded-xl" onClick={undoPick} disabled={!picks.length}><span className="mr-2">↩</span> Undo</Button>
           <Button variant="outline" className="rounded-xl" onClick={resetDraft} disabled={!userCanEditSetup}><span className="mr-2">↻</span> Reset draft</Button>
         </div>
-        <Button variant="outline" className="w-full rounded-xl border-red-800 text-red-200 hover:bg-red-950/40" onClick={clearSavedDraft} disabled={!userCanEditSetup}>Clear draft + restore defaults</Button>
+        <Button className="w-full rounded-xl bg-red-600 text-white hover:bg-red-500 font-semibold" onClick={clearSavedDraft} disabled={!userCanEditSetup}>Clear Draft + Restore Defaults</Button>
       </CardContent>
     </Card>
   );

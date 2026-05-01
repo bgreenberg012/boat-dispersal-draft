@@ -6,6 +6,30 @@ const DEFAULT_MANAGERS = ["Replacement Team 1", "Replacement Team 2", "Replaceme
 const ACCESS_ROLES = { TEAM: "team", ADMIN: "admin", SPECTATOR: "spectator" };
 const ADMIN_CODE = "BOAT";
 
+// Generate secure random team codes
+function generateRandomCode(length = 4) {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // avoid confusing chars
+  let code = "";
+  for (let i = 0; i < length; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+function generateTeamCodes(count) {
+  const codes = {};
+  const used = new Set();
+  for (let i = 0; i < count; i++) {
+    let code;
+    do {
+      code = generateRandomCode();
+    } while (used.has(code));
+    used.add(code);
+    codes[i] = code;
+  }
+  return codes;
+}
+
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDMkJu3lXERqYCodV-ZPheRqDTB9HYOvkM",
   authDomain: "boat-dispersal-draft.firebaseapp.com",
@@ -39,6 +63,7 @@ function sanitizeRemoteState(state) {
     rounds: state.rounds || 35,
     picks: Array.isArray(state.picks) ? state.picks : [],
     queues: state.queues && typeof state.queues === "object" ? state.queues : {},
+    teamCodes: state.teamCodes && typeof state.teamCodes === "object" ? state.teamCodes : generateTeamCodes(DEFAULT_MANAGERS.length),
   };
 }
 
@@ -624,6 +649,8 @@ function runSelfTests() {
   console.assert(getCommittedManagerName("   ", "Old Team") === "Old Team", "Manager input should keep old name if blank");
   console.assert(typeof isFirebaseConfigured() === "boolean", "Firebase configuration check should return a boolean");
   console.assert(sanitizeRemoteState({ managers: ["A"], picks: [] }).managers[0] === "A", "Remote state sanitizer should preserve managers");
+  console.assert(typeof sanitizeRemoteState({ teamCodes: { 0: "ABCD" } }).teamCodes[0] === "string", "Remote state should preserve persisted team codes");
+  console.assert(canUserEditSetup({ role: ACCESS_ROLES.ADMIN }) === true, "Only admin setup should reveal team codes in UI");
   console.assert(sanitizeRemoteState({ filter: "QB", mainView: "board", selectedTeamIndex: 2 }).filter === undefined, "Remote state should not include personal UI state");
   console.assert(Array.isArray(getQueueForManager({ 1: [{ asset: { id: "a" } }] }, 1)), "Queue helper should return manager queue arrays");
   console.assert(canUserEditQueue({ role: ACCESS_ROLES.ADMIN }, 0) === false, "Admin should not be able to edit private team queues");
@@ -664,7 +691,15 @@ function runSelfTests() {
   console.assert(testLineup.draftPicks.length === 1 && testLineup.divisions.length === 1, "Lineup should split picks and divisions");
 }
 
-if (typeof console !== "undefined") runSelfTests();
+if (typeof console !== "undefined") console.assert(
+  Object.values(generateTeamCodes(4)).length === 4,
+  "Should generate correct number of team codes"
+);
+console.assert(
+  new Set(Object.values(generateTeamCodes(10))).size === 10,
+  "Generated team codes should be unique"
+);
+runSelfTests();
 
 export default function DynastyDispersalDraftTool() {
   const remoteDocRef = useMemo(() => getDraftDocRef(), []);
@@ -688,6 +723,8 @@ export default function DynastyDispersalDraftTool() {
   const [access, setAccess] = useState(null);
   const [selectedTeamIndex, setSelectedTeamIndex] = useState(0);
   const [adminCode, setAdminCode] = useState("");
+  const [teamCodeInput, setTeamCodeInput] = useState("");
+  const [teamCodes, setTeamCodes] = useState(() => generateTeamCodes(DEFAULT_MANAGERS.length));
   const [accessError, setAccessError] = useState("");
   const [activeRosterTab, setActiveRosterTab] = useState(0);
   const [queues, setQueues] = useState({});
@@ -715,6 +752,7 @@ export default function DynastyDispersalDraftTool() {
             rounds: 35,
             picks: [],
             queues: {},
+            teamCodes: generateTeamCodes(DEFAULT_MANAGERS.length),
           });
           await setDoc(remoteDocRef, { ...initialState, updatedAt: serverTimestamp() }, { merge: true });
           remoteLoadedRef.current = true;
@@ -730,6 +768,7 @@ export default function DynastyDispersalDraftTool() {
         setRounds(data.rounds);
         setPicks(data.picks);
         setQueues(data.queues);
+        setTeamCodes(data.teamCodes);
         remoteLoadedRef.current = true;
         setSyncMessage("Live synced with Firebase");
       },
@@ -748,7 +787,7 @@ export default function DynastyDispersalDraftTool() {
       return;
     }
 
-    const state = sanitizeRemoteState({ assets, managers, draftMode, rounds, picks, queues });
+    const state = sanitizeRemoteState({ assets, managers, draftMode, rounds, picks, queues, teamCodes });
     const timeout = window.setTimeout(async () => {
       try {
         await setDoc(remoteDocRef, { ...state, updatedAt: serverTimestamp() }, { merge: true });
@@ -759,7 +798,7 @@ export default function DynastyDispersalDraftTool() {
       }
     }, 300);
     return () => window.clearTimeout(timeout);
-  }, [assets, managers, draftMode, rounds, picks, queues, remoteDocRef]);
+  }, [assets, managers, draftMode, rounds, picks, queues, teamCodes, remoteDocRef]);
 
   const filteredAssets = availableAssets.filter((asset) => {
     const matchesType = filter === "All" || asset.type === filter || asset.position === filter;
@@ -810,9 +849,17 @@ export default function DynastyDispersalDraftTool() {
   }
 
   function enterAsTeam() {
-    const safeManagerIndex = Math.min(Math.max(Number(selectedTeamIndex) || 0, 0), managers.length - 1);
+    const code = teamCodeInput.trim().toUpperCase();
+    const entry = Object.entries(teamCodes).find(([, c]) => c === code);
+
+    if (!entry) {
+      setAccessError("Invalid team code.");
+      return;
+    }
+
+    const managerIndex = Number(entry[0]);
     setShowSetupPanel(false);
-    setAccess({ role: ACCESS_ROLES.TEAM, team: managers[safeManagerIndex], managerIndex: safeManagerIndex });
+    setAccess({ role: ACCESS_ROLES.TEAM, team: managers[managerIndex], managerIndex });
     setAccessError("");
   }
 
@@ -845,6 +892,7 @@ export default function DynastyDispersalDraftTool() {
   function clearSavedDraft() {
     setPicks([]);
     setQueues({});
+    setTeamCodes(generateTeamCodes(DEFAULT_MANAGERS.length));
     setAssets(parsePipeTable(RAW_ASSETS));
     setManagers(DEFAULT_MANAGERS);
     setDraftMode("snake");
@@ -980,11 +1028,12 @@ export default function DynastyDispersalDraftTool() {
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
                   <div className="mb-3 font-semibold">Team user</div>
-                  <select className={`mb-3 w-full ${inputClass}`} value={selectedTeamIndex} onChange={(e) => setSelectedTeamIndex(Number(e.target.value))}>
-                    {managers.map((manager, index) => (
-                      <option key={`${index}-${manager}`} value={index}>Team {index + 1}: {manager}</option>
-                    ))}
-                  </select>
+                  <input
+                    className={`mb-3 w-full ${inputClass}`}
+                    placeholder="Enter team code (e.g. T1)"
+                    value={teamCodeInput}
+                    onChange={(e) => setTeamCodeInput(e.target.value)}
+                  />
                   <Button className="w-full rounded-xl" onClick={enterAsTeam}>Enter as team</Button>
                 </div>
                 <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
@@ -1037,7 +1086,7 @@ export default function DynastyDispersalDraftTool() {
         <div className={showSetupPanel ? "grid gap-4 lg:grid-cols-[360px_1fr]" : "grid gap-4 lg:grid-cols-1"}>
           {showSetupPanel && (
             <aside className="space-y-4">
-              <SetupCard managers={managers} setManagers={setManagers} rounds={rounds} setRounds={setRounds} draftMode={draftMode} setDraftMode={setDraftMode} currentSlot={currentSlot} access={access} userCanDraftCurrentPick={userCanDraftCurrentPick} userCanEditSetup={userCanEditSetup} picks={picks} undoPick={() => setPicks((prev) => prev.slice(0, -1))} resetDraft={resetDraft} clearSavedDraft={clearSavedDraft} setShowSetupPanel={setShowSetupPanel} />
+              <SetupCard managers={managers} setManagers={setManagers} teamCodes={teamCodes} rounds={rounds} setRounds={setRounds} draftMode={draftMode} setDraftMode={setDraftMode} currentSlot={currentSlot} access={access} userCanDraftCurrentPick={userCanDraftCurrentPick} userCanEditSetup={userCanEditSetup} picks={picks} undoPick={() => setPicks((prev) => prev.slice(0, -1))} resetDraft={resetDraft} clearSavedDraft={clearSavedDraft} setShowSetupPanel={setShowSetupPanel} />
               <AssetsAdminCard userCanEditSetup={userCanEditSetup} newAsset={newAsset} setNewAsset={setNewAsset} addAsset={addAsset} handleCsvUpload={handleCsvUpload} setShowSetupPanel={setShowSetupPanel} />
             </aside>
           )}
@@ -1071,7 +1120,7 @@ function Stat({ label, value }) {
 }
 
 function SetupCard(props) {
-  const { managers, setManagers, rounds, setRounds, draftMode, setDraftMode, currentSlot, access, userCanDraftCurrentPick, userCanEditSetup, picks, undoPick, resetDraft, clearSavedDraft, setShowSetupPanel } = props;
+  const { managers, setManagers, teamCodes, rounds, setRounds, draftMode, setDraftMode, currentSlot, access, userCanDraftCurrentPick, userCanEditSetup, picks, undoPick, resetDraft, clearSavedDraft, setShowSetupPanel } = props;
   return (
     <Card className="rounded-3xl shadow-lg shadow-black/20">
       <CardContent className="space-y-4 p-5">
@@ -1089,6 +1138,21 @@ function SetupCard(props) {
             <ManagerNameInput key={idx} value={manager} disabled={!userCanEditSetup} onCommit={(nextName) => setManagers((prev) => prev.map((m, i) => (i === idx ? nextName : m)))} />
           ))}
         </div>
+
+        {userCanEditSetup && (
+          <div className="rounded-2xl border border-slate-700 bg-slate-950 p-3">
+            <div className="mb-2 font-semibold">Team access codes</div>
+            <div className="space-y-1 text-sm text-slate-300">
+              {managers.map((manager, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 rounded-xl bg-slate-900 px-3 py-2">
+                  <span className="truncate">Team {i + 1}: {manager}</span>
+                  <span className="font-mono font-bold text-cyan-300">{teamCodes?.[i]}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 text-xs text-slate-500">Share each code only with that team.</div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <label className="space-y-1 text-sm font-medium">

@@ -71,124 +71,229 @@ const inputClass = "rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 te
 const smallInputClass = "rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 disabled:opacity-50";
 const tableHeadClass = "sticky top-0 z-10 bg-slate-950 text-slate-300";
 
-const SF_RANKINGS = {
-  "Drake Maye": 2,
-  "Brian Thomas Jr.": 32,
-  "Marvin Harrison Jr.": 35,
-  "Brock Purdy": 38,
-  "Jordan Love": 40,
-  "Kyren Williams": 42,
-  "C.J. Stroud": 45,
-  "Luther Burden": 46,
-  "DeVonta Smith": 47,
-  "Josh Jacobs": 48,
-  "Kenneth Walker III": 50,
-  "Brandon Aiyuk": 52,
-  "Emeka Egbuka": 54,
-  "2026 Rookie 1.01": 56,
-  "2026 Rookie 1.02": 57,
+// Composite dynasty superflex market ranks.
+// Lower = better. Built as a blended approximation of FantasyPros ECR-style rankings,
+// KeepTradeCut market values, and manual rookie-pick/defense/depth-player adjustments.
+const FANTASYPROS_RANKINGS = {
+  "Drake Maye": 4,
+  "Marvin Harrison Jr.": 24,
+  "Brian Thomas Jr.": 28,
+  "C.J. Stroud": 30,
+  "Jordan Love": 34,
+  "Brock Purdy": 36,
+  "Emeka Egbuka": 42,
+  "Kyren Williams": 45,
+  "Josh Jacobs": 52,
+  "DeVonta Smith": 54,
   "D.J. Moore": 60,
-  "D'Andre Swift": 62,
-  "Jaylen Warren": 63,
-  "George Kittle": 65,
-  "2026 Rookie 1.04": 66,
-  "Bryce Young": 68,
+  "George Kittle": 66,
   "Travis Hunter": 70,
-  "Rashee Rice": 72,
-  "2026 Rookie 1.06": 74,
-  "Tony Pollard": 78,
-  "Zach Charbonnet": 80,
-  "Stefon Diggs": 84,
-  "Davante Adams": 86,
-  "Deebo Samuel": 90,
-  "Juwan Johnson": 96,
-  "Pat Freiermuth": 102,
-  "Jaylin Noel": 104,
-  "Woody Marks": 108,
-  "Bhayshul Tuten": 110,
-  "Rhamondre Stevenson": 112,
-  "Cooper Kupp": 115,
-  "Jauan Jennings": 118,
-  "Wan'Dale Robinson": 120,
-  "Jakobi Meyers": 122,
-  "Aaron Rodgers": 125,
-  "Tyler Shough": 128,
-  "Geno Smith": 130,
-  "Kareem Hunt": 132,
-  "Kenneth Gainwell": 134,
-  "2026 Rookie 1.13": 136,
+  "Rashee Rice": 74,
+  "Bryce Young": 82,
+  "Kenneth Walker III": 86,
+  "Zach Charbonnet": 92,
+  "D'Andre Swift": 96,
+  "Jaylen Warren": 98,
+  "Tony Pollard": 106,
+  "Brandon Aiyuk": 112,
+  "Luther Burden": 116,
+  "Stefon Diggs": 122,
+  "Davante Adams": 128,
+  "Deebo Samuel": 132,
+  "Cooper Kupp": 142,
+  "Jakobi Meyers": 146,
+  "Rhamondre Stevenson": 148,
+  "Jaylin Noel": 154,
+  "Jauan Jennings": 158,
+  "Wan'Dale Robinson": 164,
+  "Woody Marks": 168,
+  "Bhayshul Tuten": 172,
+  "Juwan Johnson": 176,
+  "Pat Freiermuth": 180,
+  "Aaron Rodgers": 184,
+  "Geno Smith": 188,
+  "Tyler Shough": 192,
+  "Shedeur Sanders": 198,
+  "Jalen Milroe": 204,
+  "Joe Mixon": 210,
+  "Kareem Hunt": 218,
+  "Blake Corum": 224,
+  "Braelon Allen": 228,
+  "Brashard Smith": 232,
+  "Keaton Mitchell": 236,
+  "Chigoziem Okonkwo": 240,
+  "Noah Fant": 246,
+  "Taysom Hill": 252,
+  "Christian Kirk": 258,
+  "Tyler Higbee": 264,
+  "Zach Ertz": 270,
+  "Darren Waller": 276,
+  "Rashod Bateman": 282,
+  "Demario Douglas": 288,
+  "Joshua Palmer": 294,
+  "Tyler Lockett": 300,
+  "Skyy Moore": 306,
+  "Savion Williams": 312,
+  "Michael Carter": 318,
+  "Jordan Mason": 324,
+  "Ray Davis": 330,
+  "LeQuint Allen": 336,
+  "Chris Rodriguez": 342,
+  "Miles Sanders": 348,
+  "Jaydon Blue": 354,
+  "Jarquez Hunter": 360,
+  "Jordan James": 366,
+  "Jawhar Jordan": 372,
+  "Phil Mafah": 378,
+  "Raheim Sanders": 384,
+  "Alexander Mattison": 390,
+  "Kenneth Gainwell": 396,
+  "KaVontae Turpin": 402,
+  "Tyreek Hill": 408,
+  "Mac Jones": 414,
+  "Joe Flacco": 420,
+  "Tyrod Taylor": 426,
+  "Kenny Pickett": 432,
+  "Jimmy Garoppolo": 438,
+  "Malik Willis": 444,
+  "Tanner McKee": 450,
+  "Andy Dalton": 456,
+  "Deshaun Watson": 462,
+  "Elijah Arroyo": 468,
+  "Terrance Ferguson": 474,
+  "Tyler Conklin": 480,
+  "Will Dissly": 486,
+  "Johnny Mundt": 492,
+  "Tutu Atwell": 498,
+  "Jimmy Horn": 504,
+  "Jaylin Lane": 510,
+  "Jalen Royals": 516,
+  "Curtis Samuel": 522,
+  "JuJu Smith-Schuster": 528,
+  "LaJohntay Wester": 534,
+  "Johnny Wilson": 540,
+  "Hassan Haskins": 546,
+};
+
+const KTC_RANKINGS = {
+  "Drake Maye": 6,
+  "Emeka Egbuka": 31,
+  "Brock Purdy": 36,
+  "Brian Thomas Jr.": 38,
+  "Marvin Harrison Jr.": 40,
+  "C.J. Stroud": 42,
+  "Jordan Love": 44,
+  "Kyren Williams": 48,
+  "Josh Jacobs": 58,
+  "DeVonta Smith": 62,
+  "D.J. Moore": 68,
+  "George Kittle": 72,
+  "Travis Hunter": 76,
+  "Rashee Rice": 80,
+  "Bryce Young": 88,
+  "Kenneth Walker III": 94,
+  "Zach Charbonnet": 102,
+  "D'Andre Swift": 106,
+  "Jaylen Warren": 110,
+  "Tony Pollard": 118,
+  "Brandon Aiyuk": 128,
+  "Luther Burden": 132,
+  "Stefon Diggs": 140,
+  "Davante Adams": 150,
+  "Deebo Samuel": 154,
+  "Cooper Kupp": 168,
+  "Jakobi Meyers": 174,
+  "Rhamondre Stevenson": 178,
+  "Jaylin Noel": 184,
+  "Jauan Jennings": 190,
+  "Wan'Dale Robinson": 196,
+  "Woody Marks": 202,
+  "Bhayshul Tuten": 208,
+  "Juwan Johnson": 214,
+  "Pat Freiermuth": 220,
+  "Geno Smith": 226,
+  "Aaron Rodgers": 232,
+  "Tyler Shough": 238,
+  "Shedeur Sanders": 244,
+  "Jalen Milroe": 250,
+  "Joe Mixon": 260,
+  "Kareem Hunt": 272,
+  "Blake Corum": 278,
+  "Braelon Allen": 284,
+  "Brashard Smith": 290,
+  "Keaton Mitchell": 296,
+  "Chigoziem Okonkwo": 304,
+  "Noah Fant": 312,
+  "Taysom Hill": 320,
+  "Christian Kirk": 328,
+  "Tyler Higbee": 336,
+  "Zach Ertz": 344,
+  "Darren Waller": 352,
+  "Rashod Bateman": 360,
+  "Demario Douglas": 368,
+  "Joshua Palmer": 376,
+  "Tyler Lockett": 384,
+  "Skyy Moore": 392,
+  "Savion Williams": 400,
+  "Michael Carter": 408,
+  "Jordan Mason": 416,
+  "Ray Davis": 424,
+  "LeQuint Allen": 432,
+  "Chris Rodriguez": 440,
+  "Miles Sanders": 448,
+  "Jaydon Blue": 456,
+  "Jarquez Hunter": 464,
+  "Jordan James": 472,
+  "Jawhar Jordan": 480,
+  "Phil Mafah": 488,
+  "Raheim Sanders": 496,
+  "Alexander Mattison": 504,
+  "Kenneth Gainwell": 512,
+  "KaVontae Turpin": 520,
+  "Tyreek Hill": 528,
+  "Mac Jones": 536,
+  "Joe Flacco": 544,
+  "Tyrod Taylor": 552,
+  "Kenny Pickett": 560,
+  "Jimmy Garoppolo": 568,
+  "Malik Willis": 576,
+  "Tanner McKee": 584,
+  "Andy Dalton": 592,
+  "Deshaun Watson": 600,
+};
+
+const MANUAL_ASSET_RANKINGS = {
+  "2026 Rookie 1.01": 34,
+  "2026 Rookie 1.02": 46,
+  "2026 Rookie 1.04": 72,
+  "2026 Rookie 1.06": 90,
+  "2026 Rookie 1.13": 132,
   "2026 Rookie 1.14": 138,
-  "Michael Carter": 142,
-  "Jordan Mason": 144,
-  "Braelon Allen": 146,
-  "Blake Corum": 148,
-  "Keaton Mitchell": 150,
-  "Brashard Smith": 152,
-  "Chigoziem Okonkwo": 156,
-  "Noah Fant": 160,
-  "Taysom Hill": 162,
-  "Joe Mixon": 165,
-  "2026 Rookie 1.20": 166,
-  "Shedeur Sanders": 170,
-  "Jalen Milroe": 174,
-  "Deshaun Watson": 178,
-  "Mac Jones": 182,
-  "Joe Flacco": 184,
-  "Tyrod Taylor": 188,
-  "Kenny Pickett": 190,
-  "Jimmy Garoppolo": 194,
-  "Malik Willis": 196,
-  "Tanner McKee": 198,
-  "Andy Dalton": 200,
-  "2026 Rookie 2.03": 205,
-  "2026 Rookie 2.04": 206,
-  "2026 Rookie 2.06": 208,
-  "Christian Kirk": 215,
-  "Rashod Bateman": 218,
-  "Demario Douglas": 220,
-  "Savion Williams": 222,
-  "Joshua Palmer": 224,
-  "Tyler Lockett": 226,
-  "Skyy Moore": 228,
-  "KaVontae Turpin": 230,
-  "Tyler Higbee": 235,
-  "Tyler Conklin": 240,
-  "Zach Ertz": 242,
-  "Darren Waller": 245,
-  "Elijah Arroyo": 248,
-  "Terrance Ferguson": 250,
-  "LeQuint Allen": 252,
-  "Ray Davis": 254,
-  "Chris Rodriguez": 256,
-  "Miles Sanders": 258,
-  "Alexander Mattison": 260,
-  "Jaydon Blue": 262,
-  "Jarquez Hunter": 264,
-  "Jordan James": 266,
-  "Jawhar Jordan": 268,
-  "Phil Mafah": 270,
-  "Raheim Sanders": 272,
-  "2026 Rookie 2.19": 275,
-  "2026 Rookie 2.20": 276,
-  "2026 Rookie 3.01": 285,
+  "2026 Rookie 1.20": 172,
+  "2026 Rookie 2.03": 184,
+  "2026 Rookie 2.04": 188,
+  "2026 Rookie 2.06": 196,
+  "2026 Rookie 2.19": 240,
+  "2026 Rookie 2.20": 244,
+  "2026 Rookie 3.01": 276,
   "2026 Rookie 3.04": 288,
-  "2026 Rookie 3.06": 290,
-  "2026 Rookie 3.16": 300,
-  "2026 Rookie 4.02": 320,
-  "2026 Rookie 4.04": 322,
-  "2026 Rookie 4.06": 324,
-  "2026 Rookie 4.14": 330,
-  "2026 Rookie 4.19": 335,
-  "A Division Slot": 350,
-  "B Division Slot - Boston Bums": 351,
-  "B Division Slot - Baby Billy's Bible Bonkers": 352,
-  "B Division Slot - Girth Brooks": 353,
-  "Cleveland Browns": 400,
-  "Denver Broncos": 402,
-  "Buffalo Bills": 404,
-  "Kansas City Chiefs": 406,
-  "Atlanta Falcons": 408,
-  "San Francisco 49ers": 410,
+  "2026 Rookie 3.06": 296,
+  "2026 Rookie 3.16": 328,
+  "2026 Rookie 4.02": 372,
+  "2026 Rookie 4.04": 380,
+  "2026 Rookie 4.06": 388,
+  "2026 Rookie 4.14": 420,
+  "2026 Rookie 4.19": 440,
+  "A Division Slot": 900,
+  "B Division Slot - Boston Bums": 901,
+  "B Division Slot - Baby Billy's Bible Bonkers": 902,
+  "B Division Slot - Girth Brooks": 903,
+  "Denver Broncos": 650,
+  "Cleveland Browns": 660,
+  "Buffalo Bills": 670,
+  "Kansas City Chiefs": 680,
+  "Atlanta Falcons": 690,
+  "San Francisco 49ers": 700,
 };
 
 const RAW_ASSETS = `name|type|position|team|sourceRoster|notes
@@ -459,8 +564,54 @@ function parseAssetsCsv(text) {
   });
 }
 
+function getGlobalCompositeRank(asset) {
+  if (!asset?.name) return 9999;
+
+  const MANUAL_BOOSTS = {
+    "Malik Willis": -120,
+  };
+
+  if (MANUAL_ASSET_RANKINGS[asset.name]) return MANUAL_ASSET_RANKINGS[asset.name];
+
+  const fpRank = FANTASYPROS_RANKINGS[asset.name];
+  const ktcRank = KTC_RANKINGS[asset.name];
+
+  let base;
+  if (fpRank && ktcRank) base = Math.round(fpRank * 0.55 + ktcRank * 0.45);
+  else if (fpRank) base = fpRank;
+  else if (ktcRank) base = ktcRank;
+  else {
+    const fallbackByPosition = {
+      QB: 575,
+      RB: 625,
+      WR: 625,
+      TE: 650,
+      DEF: 725,
+      "Draft Pick": 750,
+      Division: 900,
+    };
+    base = fallbackByPosition[asset.position] || 9999;
+  }
+
+  let adjusted = base;
+
+  if (asset.position === "QB") {
+    adjusted -= 60;
+  }
+
+  if (asset.position === "TE") {
+    adjusted -= 25;
+  }
+
+  if (MANUAL_BOOSTS[asset.name]) {
+    adjusted += MANUAL_BOOSTS[asset.name];
+  }
+
+  return Math.max(1, Math.round(adjusted));
+}
+
 function getSuperflexRank(asset) {
-  return SF_RANKINGS[asset?.name] ?? 9999;
+  return getGlobalCompositeRank(asset);
 }
 
 function sortRosterAssets(assets) {
@@ -588,6 +739,33 @@ function getQueueForManager(queues, managerIndex) {
   return Array.isArray(queues?.[managerIndex]) ? queues[managerIndex] : [];
 }
 
+function getRemainingCopyKey(asset) {
+  if (!asset || asset.type !== "Player") return null;
+  return `${asset.name}|${asset.position}`;
+}
+
+function buildRemainingCopyCounts(availableAssets) {
+  const counts = new Map();
+  availableAssets.forEach((asset) => {
+    const key = getRemainingCopyKey(asset);
+    if (!key) return;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  return counts;
+}
+
+function getRemainingCopies(asset, remainingCopyCounts) {
+  const key = getRemainingCopyKey(asset);
+  if (!key) return 1;
+  return remainingCopyCounts?.get(key) || 1;
+}
+
+function CopyCountBadge({ asset, remainingCopyCounts }) {
+  const copies = getRemainingCopies(asset, remainingCopyCounts);
+  if (asset?.type !== "Player" || copies < 2) return null;
+  return <span className="rounded-full border border-cyan-700 bg-cyan-950/60 px-2 py-0.5 text-[11px] font-bold text-cyan-200">{copies} copies left</span>;
+}
+
 function normalizeQueuesAfterDraft(queues, draftedAssetId) {
   const nextQueues = {};
   Object.entries(queues || {}).forEach(([managerIndex, queue]) => {
@@ -632,7 +810,12 @@ function runSelfTests() {
   console.assert(hasManagerDraftedDivision([{ manager: "A", asset: { name: "A Division Slot", type: "Division" } }], "A", { name: "B Division Slot", type: "Division" }) === true, "Same manager cannot draft two division slots");
   console.assert(hasManagerDraftedDivision([{ manager: "A", asset: { name: "A Division Slot", type: "Division" } }], "B", { name: "B Division Slot", type: "Division" }) === false, "Different manager can draft an available division slot");
   console.assert(buildDraftBoardRows(buildDraftSlots(managers, 1, "linear"), [], managers).length === 1, "Draft board should have one row per round");
-  console.assert(compareAssetsBySortMode({ name: "Drake Maye" }, { name: "Andy Dalton" }, "sfRank") < 0, "Superflex rank sort should put better ranked players first");
+  console.assert(compareAssetsBySortMode({ name: "Drake Maye" }, { name: "Andy Dalton" }, "sfRank") < 0, "Composite superflex rank sort should put better ranked players first");
+  console.assert(getSuperflexRank({ name: "Kenneth Gainwell", position: "RB" }) > getSuperflexRank({ name: "Tony Pollard", position: "RB" }), "Composite ranks should not overvalue low-market 2025 point scorers");
+  console.assert(getSuperflexRank({ name: "2026 Rookie 1.01", type: "Pick", position: "Draft Pick" }) < getSuperflexRank({ name: "2026 Rookie 2.20", type: "Pick", position: "Draft Pick" }), "Rookie picks should sort by expected market value");
+  console.assert(getSuperflexRank({ name: "Drake Maye", position: "QB" }) !== getSuperflexRank({ name: "C.J. Stroud", position: "QB" }), "QB boost should not collapse top QBs into the same rank");
+  console.assert(getSuperflexRank({ name: "Malik Willis", position: "QB" }) < getSuperflexRank({ name: "Mac Jones", position: "QB" }), "Malik Willis should be boosted above backup/depth QBs");
+  console.assert(getSuperflexRank({ name: "George Kittle", position: "TE" }) < getSuperflexRank({ name: "Davante Adams", position: "WR" }), "TE premium should modestly boost elite TEs without over-flattening ranks");
   console.assert(compareAssetsBySortMode({ name: "Andy Dalton" }, { name: "Bryce Young" }, "alpha") < 0, "Alphabetical sort should sort by name");
   console.assert(parsePipeTable("name|type|position|team|sourceRoster|notes\nA|Player|QB|X|Y|Z").length === 1, "Pipe table parser should parse one asset");
   console.assert(csvEscape('A,"B"') === '"A,""B"""', "CSV escaping should double internal quotes and wrap comma values");
@@ -676,6 +859,7 @@ function runSelfTests() {
     "CSV export should reflect updated manager name via managerIndex"
   );
   console.assert(normalizeQueuesAfterDraft({ 0: [{ asset: { id: "a" } }, { asset: { id: "b" } }] }, "a")[0].length === 1, "Drafted asset should be removed from queues");
+  console.assert(buildRemainingCopyCounts([{ name: "X", type: "Player", position: "QB" }, { name: "X", type: "Player", position: "QB" }]).get("X|QB") === 2, "Remaining copy counts should show duplicate players");
   const testLineup = buildLineupGroups([
     { name: "QB1", type: "Player", position: "QB" },
     { name: "RB1", type: "Player", position: "RB" },
@@ -698,6 +882,10 @@ if (typeof console !== "undefined") console.assert(
 console.assert(
   new Set(Object.values(generateTeamCodes(10))).size === 10,
   "Generated team codes should be unique"
+);
+console.assert(
+  Object.keys(generateTeamCodes(4)).join(",") === "0,1,2,3",
+  "Generated team codes should preserve team indexes"
 );
 runSelfTests();
 
@@ -807,6 +995,8 @@ export default function DynastyDispersalDraftTool() {
   });
 
   const sortedAssets = [...filteredAssets].sort((a, b) => compareAssetsBySortMode(a, b, sortMode));
+  const draftPoolRankById = new Map([...availableAssets].sort((a, b) => compareAssetsBySortMode(a, b, "sfRank")).map((asset, index) => [asset.id, index + 1]));
+  const remainingCopyCounts = useMemo(() => buildRemainingCopyCounts(availableAssets), [availableAssets]);
   const rosterByManager = managers.map((manager, managerIndex) => ({ manager, managerIndex, assets: picks.filter((p) => p.managerIndex === managerIndex || p.manager === manager).map((p) => p.asset) }));
 
   useEffect(() => {
@@ -902,6 +1092,11 @@ export default function DynastyDispersalDraftTool() {
     setSortMode("sfRank");
     setShowSetupPanel(true);
     setSelectedTeamIndex(0);
+  }
+
+  function resetTeamCodes() {
+    if (!userCanEditSetup) return;
+    setTeamCodes(generateTeamCodes(managers.length));
   }
 
   function addAsset() {
@@ -1086,7 +1281,7 @@ export default function DynastyDispersalDraftTool() {
         <div className={showSetupPanel ? "grid gap-4 lg:grid-cols-[360px_1fr]" : "grid gap-4 lg:grid-cols-1"}>
           {showSetupPanel && (
             <aside className="space-y-4">
-              <SetupCard managers={managers} setManagers={setManagers} teamCodes={teamCodes} rounds={rounds} setRounds={setRounds} draftMode={draftMode} setDraftMode={setDraftMode} currentSlot={currentSlot} access={access} userCanDraftCurrentPick={userCanDraftCurrentPick} userCanEditSetup={userCanEditSetup} picks={picks} undoPick={() => setPicks((prev) => prev.slice(0, -1))} resetDraft={resetDraft} clearSavedDraft={clearSavedDraft} setShowSetupPanel={setShowSetupPanel} />
+              <SetupCard managers={managers} setManagers={setManagers} teamCodes={teamCodes} resetTeamCodes={resetTeamCodes} rounds={rounds} setRounds={setRounds} draftMode={draftMode} setDraftMode={setDraftMode} currentSlot={currentSlot} access={access} userCanDraftCurrentPick={userCanDraftCurrentPick} userCanEditSetup={userCanEditSetup} picks={picks} undoPick={() => setPicks((prev) => prev.slice(0, -1))} resetDraft={resetDraft} clearSavedDraft={clearSavedDraft} setShowSetupPanel={setShowSetupPanel} />
               <AssetsAdminCard userCanEditSetup={userCanEditSetup} newAsset={newAsset} setNewAsset={setNewAsset} addAsset={addAsset} handleCsvUpload={handleCsvUpload} setShowSetupPanel={setShowSetupPanel} />
             </aside>
           )}
@@ -1096,11 +1291,11 @@ export default function DynastyDispersalDraftTool() {
             {mainView === "board" ? (
               <DraftBoard managers={managers} rows={draftBoardRows} currentSlot={currentSlot} draftMode={draftMode} showSetupPanel={showSetupPanel} />
             ) : mainView === "queue" && canUserViewQueue(access) ? (
-              <DraftQueue managers={managers} queues={queues} activeQueueTab={activeQueueTab} setActiveQueueTab={setActiveQueueTab} availableAssets={availableAssets} sortMode={sortMode} setSortMode={setSortMode} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} filterOptions={filterOptions} access={access} addToQueue={addToQueue} removeFromQueue={removeFromQueue} moveQueueItem={moveQueueItem} showSetupPanel={showSetupPanel} />
+              <DraftQueue managers={managers} queues={queues} activeQueueTab={activeQueueTab} setActiveQueueTab={setActiveQueueTab} availableAssets={availableAssets} remainingCopyCounts={remainingCopyCounts} sortMode={sortMode} setSortMode={setSortMode} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} filterOptions={filterOptions} access={access} addToQueue={addToQueue} removeFromQueue={removeFromQueue} moveQueueItem={moveQueueItem} showSetupPanel={showSetupPanel} />
             ) : mainView === "rosters" ? (
               <Rosters rosterByManager={rosterByManager} activeRosterTab={activeRosterTab} setActiveRosterTab={setActiveRosterTab} compact={false} />
             ) : (
-              <AvailablePool sortedAssets={sortedAssets} filteredAssets={filteredAssets} sortMode={sortMode} setSortMode={setSortMode} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} filterOptions={filterOptions} currentSlot={currentSlot} picks={picks} userCanDraftCurrentPick={userCanDraftCurrentPick} draftAsset={draftAsset} showSetupPanel={showSetupPanel} />
+              <AvailablePool sortedAssets={sortedAssets} filteredAssets={filteredAssets} draftPoolRankById={draftPoolRankById} remainingCopyCounts={remainingCopyCounts} sortMode={sortMode} setSortMode={setSortMode} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} filterOptions={filterOptions} currentSlot={currentSlot} picks={picks} userCanDraftCurrentPick={userCanDraftCurrentPick} draftAsset={draftAsset} showSetupPanel={showSetupPanel} />
             )}
             <DraftResults picks={picks} managers={managers} exportMessage={exportMessage} exportAvailableCsv={exportAvailableCsv} exportResultsCsv={exportResultsCsv} />
           </main>
@@ -1120,7 +1315,7 @@ function Stat({ label, value }) {
 }
 
 function SetupCard(props) {
-  const { managers, setManagers, teamCodes, rounds, setRounds, draftMode, setDraftMode, currentSlot, access, userCanDraftCurrentPick, userCanEditSetup, picks, undoPick, resetDraft, clearSavedDraft, setShowSetupPanel } = props;
+  const { managers, setManagers, teamCodes, resetTeamCodes, rounds, setRounds, draftMode, setDraftMode, currentSlot, access, userCanDraftCurrentPick, userCanEditSetup, picks, undoPick, resetDraft, clearSavedDraft, setShowSetupPanel } = props;
   return (
     <Card className="rounded-3xl shadow-lg shadow-black/20">
       <CardContent className="space-y-4 p-5">
@@ -1151,6 +1346,7 @@ function SetupCard(props) {
               ))}
             </div>
             <div className="mt-2 text-xs text-slate-500">Share each code only with that team.</div>
+            <Button variant="outline" size="sm" className="mt-3 w-full rounded-xl" onClick={resetTeamCodes}>Reset access codes only</Button>
           </div>
         )}
 
@@ -1329,7 +1525,7 @@ function DraftBoard({ managers, rows, currentSlot, draftMode, showSetupPanel }) 
 }
 
 function AvailablePool(props) {
-  const { sortedAssets, filteredAssets, sortMode, setSortMode, query, setQuery, filter, setFilter, filterOptions, currentSlot, picks, userCanDraftCurrentPick, draftAsset, showSetupPanel } = props;
+  const { sortedAssets, filteredAssets, draftPoolRankById, remainingCopyCounts, sortMode, setSortMode, query, setQuery, filter, setFilter, filterOptions, currentSlot, picks, userCanDraftCurrentPick, draftAsset, showSetupPanel } = props;
   return (
     <Card className="rounded-3xl shadow-lg shadow-black/20">
       <CardContent className="p-5">
@@ -1337,7 +1533,7 @@ function AvailablePool(props) {
           <div className="flex items-center gap-2 font-semibold"><Icon>🔎</Icon> Available pool</div>
           <div className="flex flex-wrap gap-2">
             <select className={inputClass} value={sortMode} onChange={(e) => setSortMode(e.target.value)}>
-              <option value="sfRank">Sort: SF Dynasty Rank</option>
+              <option value="sfRank">Sort: Draft Pool Rank</option>
               <option value="alpha">Sort: Alphabetical</option>
             </select>
             <input className={`w-full md:w-72 ${inputClass}`} placeholder="Search players, picks, teams..." value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -1356,8 +1552,8 @@ function AvailablePool(props) {
                 const owned = currentSlot ? isAssetBlockedForManager(picks, currentSlot.manager, asset) : false;
                 return (
                   <tr key={asset.id} className="border-t border-slate-800 bg-slate-900 hover:bg-slate-800">
-                    <td className="p-3 text-sm font-semibold text-slate-400">{getSuperflexRank(asset) === 9999 ? "—" : getSuperflexRank(asset)}</td>
-                    <td className="p-3"><div className="font-semibold">{asset.name}</div><div className="text-xs text-slate-400">{asset.notes}</div></td>
+                    <td className="p-3 text-sm font-semibold text-slate-400">{draftPoolRankById?.get(asset.id) ? `#${draftPoolRankById.get(asset.id)}` : "—"}</td>
+                    <td className="p-3"><div className="flex flex-wrap items-center gap-2"><span className="font-semibold">{asset.name}</span><CopyCountBadge asset={asset} remainingCopyCounts={remainingCopyCounts} /></div><div className="text-xs text-slate-400">{asset.notes}</div></td>
                     <td><AssetBadge asset={asset} /></td>
                     <td><span className={`rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${getAssetColorClasses(asset)}`}>{asset.position}</span></td>
                     <td>{asset.team}</td>
@@ -1375,7 +1571,7 @@ function AvailablePool(props) {
   );
 }
 
-function DraftQueue({ managers, queues, activeQueueTab, setActiveQueueTab, availableAssets, sortMode, setSortMode, query, setQuery, filter, setFilter, filterOptions, access, addToQueue, removeFromQueue, moveQueueItem, showSetupPanel }) {
+function DraftQueue({ managers, queues, activeQueueTab, setActiveQueueTab, availableAssets, remainingCopyCounts, sortMode, setSortMode, query, setQuery, filter, setFilter, filterOptions, access, addToQueue, removeFromQueue, moveQueueItem, showSetupPanel }) {
   const activeManagerIndex = Number.isInteger(access?.managerIndex) ? access.managerIndex : activeQueueTab;
   const activeManager = managers[activeManagerIndex] || managers[0] || "Team";
   const activeQueue = getQueueForManager(queues, activeManagerIndex);
@@ -1437,7 +1633,7 @@ function DraftQueue({ managers, queues, activeQueueTab, setActiveQueueTab, avail
               <div className="font-semibold">Add from available pool</div>
               <div className="flex flex-wrap gap-2">
                 <select className={inputClass} value={sortMode} onChange={(e) => setSortMode(e.target.value)}>
-                  <option value="sfRank">Sort: SF Dynasty Rank</option>
+                  <option value="sfRank">Sort: Draft Pool Rank</option>
                   <option value="alpha">Sort: Alphabetical</option>
                 </select>
                 <input className={`w-full md:w-64 ${inputClass}`} placeholder="Search queue targets..." value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -1455,7 +1651,7 @@ function DraftQueue({ managers, queues, activeQueueTab, setActiveQueueTab, avail
                   {sortedAssets.map((asset) => (
                     <tr key={asset.id} className="border-t border-slate-800 bg-slate-900 hover:bg-slate-800">
                       <td className="p-3 text-sm font-semibold text-slate-400">{getSuperflexRank(asset) === 9999 ? "—" : getSuperflexRank(asset)}</td>
-                      <td className="p-3"><div className="font-semibold">{asset.name}</div><div className="text-xs text-slate-400">{asset.team || asset.sourceRoster} · {asset.notes}</div></td>
+                      <td className="p-3"><div className="flex flex-wrap items-center gap-2"><span className="font-semibold">{asset.name}</span><CopyCountBadge asset={asset} remainingCopyCounts={remainingCopyCounts} /></div><div className="text-xs text-slate-400">{asset.team || asset.sourceRoster} · {asset.notes}</div></td>
                       <td><AssetBadge asset={asset} /></td>
                       <td className="p-3 text-right"><Button size="sm" className="rounded-xl" onClick={() => addToQueue(activeManagerIndex, asset)} disabled={!canEditActiveQueue || queuedIds.has(asset.id)}>{queuedIds.has(asset.id) ? "Queued" : "Add"}</Button></td>
                     </tr>

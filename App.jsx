@@ -434,8 +434,8 @@ function getAssetColorClasses(asset) {
 }
 
 function AssetBadge({ asset, compact = false }) {
-  const label = asset?.type === "Pick" ? "PICK" : asset?.type === "Division" ? "DIV" : asset?.position || asset?.type || "ASSET";
-  return <span className={`inline-flex items-center rounded-full font-semibold ring-1 ${compact ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-xs"} ${getAssetColorClasses(asset)}`}>{label}</span>;
+  const label = asset?.type === "Pick" ? "Pick" : asset?.type === "Division" ? "DIV" : asset?.position || asset?.type || "ASSET";
+  return <span className={`inline-flex items-center whitespace-nowrap rounded-full font-semibold ring-1 ${compact ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-xs"} ${getAssetColorClasses(asset)}`}>{label}</span>;
 }
 
 function parseCsvLine(line) {
@@ -1578,7 +1578,7 @@ function AvailablePool(props) {
         <div className={showSetupPanel ? "max-h-[520px] overflow-auto rounded-2xl border border-slate-700" : "max-h-[760px] overflow-auto rounded-2xl border border-slate-700"}>
           <table className="w-full text-left text-sm">
             <thead className={tableHeadClass}>
-              <tr><th className="p-3">Remaining</th><th>FP/KTC Rank</th><th>Asset</th><th>Type</th><th>Pos</th><th>Team</th><th>Original / Owner</th><th></th></tr>
+              <tr><th className="p-3">Remaining</th><th>FP/KTC Rank</th><th>Asset</th><th>Team</th><th>Original / Owner</th><th></th></tr>
             </thead>
             <tbody>
               {sortedAssets.map((asset) => {
@@ -1587,11 +1587,9 @@ function AvailablePool(props) {
                   <tr key={asset.id} className="border-t border-slate-800 bg-slate-900 hover:bg-slate-800">
                     <td className="p-3 text-sm font-semibold text-cyan-300">{getRemainingRankLabel(asset, draftPoolRankById)}</td>
                     <td className="p-3 text-sm font-semibold text-slate-400">{getSourceRankLabel(asset)}</td>
-                    <td className="p-3"><div className="flex flex-wrap items-center gap-2"><span className="font-semibold">{asset.name}</span><CopyCountBadge asset={asset} remainingCopyCounts={remainingCopyCounts} /></div><div className="text-xs text-slate-400">{asset.notes}</div></td>
-                    <td><AssetBadge asset={asset} /></td>
-                    <td><span className={`rounded-full px-2 py-0.5 text-xs font-medium ring-1 ${getAssetColorClasses(asset)}`}>{asset.position}</span></td>
-                    <td>{asset.team}</td>
-                    <td>{asset.sourceRoster}</td>
+                    <td className="p-3"><div className="flex flex-wrap items-center gap-2"><AssetBadge asset={asset} /><span className="font-semibold">{asset.name}</span><CopyCountBadge asset={asset} remainingCopyCounts={remainingCopyCounts} /></div><div className="text-xs text-slate-400">{asset.notes}</div></td>
+                    <td className="p-3">{asset.team}</td>
+                    <td className="p-3">{asset.sourceRoster}</td>
                     <td className="p-3 text-right"><Button size="sm" className="rounded-xl" onClick={() => draftAsset(asset)} disabled={!currentSlot || owned || !userCanDraftCurrentPick}>{owned ? (asset.type === "Division" ? "Division Owned" : "Owned") : !userCanDraftCurrentPick ? "Locked" : "Draft"}</Button></td>
                   </tr>
                 );
@@ -1679,15 +1677,14 @@ function DraftQueue({ managers, queues, activeQueueTab, setActiveQueueTab, avail
             <div className={showSetupPanel ? "max-h-[520px] overflow-auto rounded-2xl border border-slate-800" : "max-h-[680px] overflow-auto rounded-2xl border border-slate-800"}>
               <table className="w-full text-left text-sm">
                 <thead className={tableHeadClass}>
-                  <tr><th className="p-3">Remaining</th><th>FP/KTC Rank</th><th>Asset</th><th>Type</th><th></th></tr>
+                  <tr><th className="p-3">Remaining</th><th>FP/KTC Rank</th><th>Asset</th><th></th></tr>
                 </thead>
                 <tbody>
                   {sortedAssets.map((asset) => (
                     <tr key={asset.id} className="border-t border-slate-800 bg-slate-900 hover:bg-slate-800">
                       <td className="p-3 text-sm font-semibold text-cyan-300">{getRemainingRankLabel(asset, draftPoolRankById)}</td>
                       <td className="p-3 text-sm font-semibold text-slate-400">{getSourceRankLabel(asset)}</td>
-                      <td className="p-3"><div className="flex flex-wrap items-center gap-2"><span className="font-semibold">{asset.name}</span><CopyCountBadge asset={asset} remainingCopyCounts={remainingCopyCounts} /></div><div className="text-xs text-slate-400">{asset.team || asset.sourceRoster} · {asset.notes}</div></td>
-                      <td><AssetBadge asset={asset} /></td>
+                      <td className="p-3"><div className="flex flex-wrap items-center gap-2"><AssetBadge asset={asset} /><span className="font-semibold">{asset.name}</span><CopyCountBadge asset={asset} remainingCopyCounts={remainingCopyCounts} /></div><div className="text-xs text-slate-400">{asset.team || asset.sourceRoster} · {asset.notes}</div></td>
                       <td className="p-3 text-right"><Button size="sm" className="rounded-xl" onClick={() => addToQueue(activeManagerIndex, asset)} disabled={!canEditActiveQueue || queuedIds.has(asset.id)}>{queuedIds.has(asset.id) ? "Queued" : "Add"}</Button></td>
                     </tr>
                   ))}

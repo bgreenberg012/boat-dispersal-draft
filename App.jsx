@@ -952,32 +952,61 @@ export default function DynastyDispersalDraftTool() {
       setSyncMessage("Firebase config missing — cannot draft");
       return;
     }
-    if (!currentSlot || !userCanDraftCurrentPick) return;
-    if (isAssetBlockedForManager(picks, currentSlot.manager, asset)) return;
-
+  
+    if (!userCanDraftCurrentPick) return;
+  
     try {
       await runTransaction(cachedFirestore, async (transaction) => {
         const snapshot = await transaction.get(remoteDocRef);
-        const remoteData = snapshot.exists() ? sanitizeRemoteState(snapshot.data()) : sanitizeRemoteState({});
+        const remoteData = snapshot.exists()
+          ? sanitizeRemoteState(snapshot.data())
+          : sanitizeRemoteState({});
+  
         const remotePicks = Array.isArray(remoteData.picks) ? remoteData.picks : [];
-        const remoteSlots = buildDraftSlots(remoteData.managers, remoteData.rounds, remoteData.draftMode);
+        const remoteSlots = buildDraftSlots(
+          remoteData.managers,
+          remoteData.rounds,
+          remoteData.draftMode
+        );
+  
         const slot = remoteSlots[remotePicks.length];
         if (!slot) return;
+  
+        // 🔒 authoritative permission check
         if (!canUserDraftForCurrentSlot(access, slot)) return;
-        if (remotePicks.some((pick) => pick.asset?.id === asset.id)) return;
+  
+        // prevent duplicates
+        if (remotePicks.some((p) => p.asset?.id === asset.id)) return;
+  
         if (isAssetBlockedForManager(remotePicks, slot.manager, asset)) return;
-
-        transaction.set(remoteDocRef, {
-          ...sanitizeRemoteState({ ...remoteData, picks: [...remotePicks, { ...slot, asset, timestamp: new Date().toISOString() }], queues: normalizeQueuesAfterDraft(remoteData.queues, asset.id) }),
-          updatedAt: serverTimestamp(),
-        }, { merge: true });
+  
+        transaction.set(
+          remoteDocRef,
+          {
+            ...sanitizeRemoteState({
+              ...remoteData,
+              picks: [
+                ...remotePicks,
+                {
+                  ...slot,
+                  asset,
+                  timestamp: new Date().toISOString(),
+                },
+              ],
+              queues: normalizeQueuesAfterDraft(remoteData.queues, asset.id),
+            }),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true }
+        );
       });
+  
       setSyncMessage("Pick saved to Firebase");
     } catch (error) {
       console.warn("Unable to draft asset remotely", error);
       setSyncMessage("Draft pick failed to save remotely");
     }
-  }
+}
 
   function enterAsTeam() {
     const code = teamCodeInput.trim().toUpperCase();

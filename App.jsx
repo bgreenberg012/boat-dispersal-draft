@@ -1328,7 +1328,7 @@ export default function DynastyDispersalDraftTool() {
             ) : mainView === "rosters" ? (
               <Rosters rosterByManager={rosterByManager} activeRosterTab={activeRosterTab} setActiveRosterTab={setActiveRosterTab} compact={false} />
             ) : (
-              <AvailablePool sortedAssets={sortedAssets} filteredAssets={filteredAssets} draftPoolRankById={draftPoolRankById} remainingCopyCounts={remainingCopyCounts} sortMode={sortMode} setSortMode={setSortMode} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} filterOptions={filterOptions} currentSlot={currentSlot} picks={picks} userCanDraftCurrentPick={userCanDraftCurrentPick} draftAsset={draftAsset} showSetupPanel={showSetupPanel} addToQueue={addToQueue} queues={queues} access={access} />
+              <AvailablePool sortedAssets={sortedAssets} filteredAssets={filteredAssets} draftPoolRankById={draftPoolRankById} remainingCopyCounts={remainingCopyCounts} sortMode={sortMode} setSortMode={setSortMode} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} filterOptions={filterOptions} currentSlot={currentSlot} picks={picks} userCanDraftCurrentPick={userCanDraftCurrentPick} draftAsset={draftAsset} showSetupPanel={showSetupPanel} addToQueue={addToQueue} removeFromQueue={removeFromQueue} queues={queues} access={access} />
             )}
             <DraftResults picks={picks} managers={managers} exportMessage={exportMessage} exportAvailableCsv={exportAvailableCsv} exportResultsCsv={exportResultsCsv} />
           </main>
@@ -1587,11 +1587,11 @@ function DraftBoard({ managers, rows, currentSlot, draftMode, showSetupPanel }) 
 }
 
 function AvailablePool(props) {
-  const { sortedAssets, filteredAssets, draftPoolRankById, remainingCopyCounts, sortMode, setSortMode, query, setQuery, filter, setFilter, filterOptions, currentSlot, picks, userCanDraftCurrentPick, draftAsset, showSetupPanel, addToQueue, queues, access } = props;
+  const { sortedAssets, filteredAssets, draftPoolRankById, remainingCopyCounts, sortMode, setSortMode, query, setQuery, filter, setFilter, filterOptions, currentSlot, picks, userCanDraftCurrentPick, draftAsset, showSetupPanel, addToQueue, removeFromQueue, queues, access } = props;
   const activeManagerIndex = Number.isInteger(access?.managerIndex) ? access.managerIndex : (currentSlot ? currentSlot.managerIndex : null);
   const canEditQueue = canUserEditQueue(access, activeManagerIndex);
   const activeQueue = activeManagerIndex != null ? getQueueForManager(queues, activeManagerIndex) : [];
-  const queuedIds = new Set(activeQueue.map((item) => item.asset?.id));
+  const queuedItemByAssetId = new Map(activeQueue.map((item) => [item.asset?.id, item.id]));
   return (
     <Card className="rounded-3xl shadow-lg shadow-black/20">
       <CardContent className="p-5">
@@ -1616,7 +1616,8 @@ function AvailablePool(props) {
             <tbody>
               {sortedAssets.map((asset) => {
                 const owned = currentSlot ? isAssetBlockedForManager(picks, currentSlot.manager, asset) : false;
-                const isQueued = queuedIds.has(asset.id);
+                const queueItemId = queuedItemByAssetId.get(asset.id);
+                const isQueued = queueItemId != null;
                 return (
                   <tr key={asset.id} className="border-t border-slate-800 bg-slate-900 hover:bg-slate-800">
                     <td className="p-3 text-sm font-semibold text-cyan-300">{getRemainingRankLabel(asset, draftPoolRankById)}</td>
@@ -1627,7 +1628,7 @@ function AvailablePool(props) {
                     <td className="p-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         {canEditQueue && activeManagerIndex != null && (
-                          <Button variant="outline" size="sm" className="rounded-xl" onClick={() => addToQueue(activeManagerIndex, asset)} disabled={isQueued}>{isQueued ? "Queued" : "Queue"}</Button>
+                          <Button variant="outline" size="sm" className="rounded-xl" onClick={() => isQueued ? removeFromQueue(activeManagerIndex, queueItemId) : addToQueue(activeManagerIndex, asset)}>{isQueued ? "Queued ×" : "Queue"}</Button>
                         )}
                         <Button size="sm" className="rounded-xl" onClick={() => draftAsset(asset)} disabled={!currentSlot || owned || !userCanDraftCurrentPick}>{owned ? (asset.type === "Division" ? "Division Owned" : "Owned") : !userCanDraftCurrentPick ? "Locked" : "Draft"}</Button>
                       </div>
@@ -1649,7 +1650,7 @@ function DraftQueue({ managers, queues, activeQueueTab, setActiveQueueTab, avail
   const activeManager = managers[activeManagerIndex] || managers[0] || "Team";
   const activeQueue = getQueueForManager(queues, activeManagerIndex);
   const canEditActiveQueue = canUserEditQueue(access, activeManagerIndex);
-  const queuedIds = new Set(activeQueue.map((item) => item.asset?.id));
+  const queuedItemByAssetId = new Map(activeQueue.map((item) => [item.asset?.id, item.id]));
   const filteredAssets = availableAssets.filter((asset) => {
     const matchesType = filter === "All" || asset.type === filter || asset.position === filter;
     const haystack = `${asset.name} ${asset.type} ${asset.position} ${asset.team} ${asset.sourceRoster} ${asset.notes}`.toLowerCase();
@@ -1672,13 +1673,13 @@ function DraftQueue({ managers, queues, activeQueueTab, setActiveQueueTab, avail
           This queue is private to {activeManager}. Admins and spectators cannot view team queues.
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[420px_1fr]">
-          <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
+        <div className="grid gap-4 xl:grid-cols-[420px_1fr] xl:items-start">
+          <div className="flex flex-col rounded-2xl border border-slate-700 bg-slate-950 p-4 xl:sticky xl:top-4">
             <div className="mb-3 flex items-center justify-between">
               <div className="font-semibold">{activeManager}'s queue</div>
               <div className="text-sm text-slate-400">{activeQueue.length}</div>
             </div>
-            <div className="space-y-2">
+            <div className="max-h-[600px] overflow-y-auto space-y-2 pr-1">
               {activeQueue.map((item, index) => (
                 <div key={item.id} className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
                   <div className="flex items-start justify-between gap-3">
@@ -1726,14 +1727,18 @@ function DraftQueue({ managers, queues, activeQueueTab, setActiveQueueTab, avail
                   <tr><th className="p-3">Remaining</th><th>FP/KTC Rank</th><th>Asset</th><th></th></tr>
                 </thead>
                 <tbody>
-                  {sortedAssets.map((asset) => (
-                    <tr key={asset.id} className="border-t border-slate-800 bg-slate-900 hover:bg-slate-800">
-                      <td className="p-3 text-sm font-semibold text-cyan-300">{getRemainingRankLabel(asset, draftPoolRankById)}</td>
-                      <td className="p-3 text-sm font-semibold text-slate-400">{getSourceRankLabel(asset)}</td>
-                      <td className="p-3"><div className="flex flex-wrap items-center gap-2"><AssetBadge asset={asset} /><span className="font-semibold">{asset.name}</span><CopyCountBadge asset={asset} remainingCopyCounts={remainingCopyCounts} /></div><div className="text-xs text-slate-400">{asset.team || asset.sourceRoster} · {asset.notes}</div></td>
-                      <td className="p-3 text-right"><Button size="sm" className="rounded-xl" onClick={() => addToQueue(activeManagerIndex, asset)} disabled={!canEditActiveQueue || queuedIds.has(asset.id)}>{queuedIds.has(asset.id) ? "Queued" : "Add"}</Button></td>
-                    </tr>
-                  ))}
+                  {sortedAssets.map((asset) => {
+                    const queueItemId = queuedItemByAssetId.get(asset.id);
+                    const isQueued = queueItemId != null;
+                    return (
+                      <tr key={asset.id} className="border-t border-slate-800 bg-slate-900 hover:bg-slate-800">
+                        <td className="p-3 text-sm font-semibold text-cyan-300">{getRemainingRankLabel(asset, draftPoolRankById)}</td>
+                        <td className="p-3 text-sm font-semibold text-slate-400">{getSourceRankLabel(asset)}</td>
+                        <td className="p-3"><div className="flex flex-wrap items-center gap-2"><AssetBadge asset={asset} /><span className="font-semibold">{asset.name}</span><CopyCountBadge asset={asset} remainingCopyCounts={remainingCopyCounts} /></div><div className="text-xs text-slate-400">{asset.team || asset.sourceRoster} · {asset.notes}</div></td>
+                        <td className="p-3 text-right"><Button size="sm" className="rounded-xl" disabled={!canEditActiveQueue} onClick={() => isQueued ? removeFromQueue(activeManagerIndex, queueItemId) : addToQueue(activeManagerIndex, asset)}>{isQueued ? "Queued ×" : "Add"}</Button></td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
               {!sortedAssets.length && <div className="p-8 text-center text-slate-400">No matching available assets.</div>}

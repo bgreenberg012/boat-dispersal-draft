@@ -1673,13 +1673,13 @@ function DraftQueue({ managers, queues, activeQueueTab, setActiveQueueTab, avail
           This queue is private to {activeManager}. Admins and spectators cannot view team queues.
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[420px_1fr] xl:items-stretch">
-          <div className="flex flex-col rounded-2xl border border-slate-700 bg-slate-950 p-4">
+        <div className="grid gap-4 xl:grid-cols-[420px_1fr] items-start">
+          <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
             <div className="mb-3 flex items-center justify-between">
               <div className="font-semibold">{activeManager}'s Queue</div>
               <div className="text-sm text-slate-400">{activeQueue.length}</div>
             </div>
-            <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+            <div className={showSetupPanel ? "max-h-[520px] overflow-y-auto space-y-2 pr-1" : "max-h-[680px] overflow-y-auto space-y-2 pr-1"}>
               {activeQueue.map((item, index) => (
                 <div key={item.id} className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
                   <div className="flex items-start justify-between gap-3">

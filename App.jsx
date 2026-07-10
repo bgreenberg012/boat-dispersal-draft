@@ -1324,11 +1324,11 @@ export default function DynastyDispersalDraftTool() {
             {mainView === "board" ? (
               <DraftBoard managers={managers} rows={draftBoardRows} currentSlot={currentSlot} draftMode={draftMode} showSetupPanel={showSetupPanel} />
             ) : mainView === "queue" && canUserViewQueue(access) ? (
-              <DraftQueue managers={managers} queues={queues} activeQueueTab={activeQueueTab} setActiveQueueTab={setActiveQueueTab} availableAssets={availableAssets} draftPoolRankById={draftPoolRankById} remainingCopyCounts={remainingCopyCounts} sortMode={sortMode} setSortMode={setSortMode} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} filterOptions={filterOptions} access={access} addToQueue={addToQueue} removeFromQueue={removeFromQueue} moveQueueItem={moveQueueItem} showSetupPanel={showSetupPanel} />
+              <DraftQueue managers={managers} queues={queues} activeQueueTab={activeQueueTab} setActiveQueueTab={setActiveQueueTab} availableAssets={availableAssets} draftPoolRankById={draftPoolRankById} remainingCopyCounts={remainingCopyCounts} sortMode={sortMode} setSortMode={setSortMode} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} filterOptions={filterOptions} access={access} addToQueue={addToQueue} removeFromQueue={removeFromQueue} moveQueueItem={moveQueueItem} showSetupPanel={showSetupPanel} currentSlot={currentSlot} userCanDraftCurrentPick={userCanDraftCurrentPick} draftAsset={draftAsset} />
             ) : mainView === "rosters" ? (
               <Rosters rosterByManager={rosterByManager} activeRosterTab={activeRosterTab} setActiveRosterTab={setActiveRosterTab} compact={false} />
             ) : (
-              <AvailablePool sortedAssets={sortedAssets} filteredAssets={filteredAssets} draftPoolRankById={draftPoolRankById} remainingCopyCounts={remainingCopyCounts} sortMode={sortMode} setSortMode={setSortMode} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} filterOptions={filterOptions} currentSlot={currentSlot} picks={picks} userCanDraftCurrentPick={userCanDraftCurrentPick} draftAsset={draftAsset} showSetupPanel={showSetupPanel} />
+              <AvailablePool sortedAssets={sortedAssets} filteredAssets={filteredAssets} draftPoolRankById={draftPoolRankById} remainingCopyCounts={remainingCopyCounts} sortMode={sortMode} setSortMode={setSortMode} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} filterOptions={filterOptions} currentSlot={currentSlot} picks={picks} userCanDraftCurrentPick={userCanDraftCurrentPick} draftAsset={draftAsset} showSetupPanel={showSetupPanel} addToQueue={addToQueue} queues={queues} access={access} />
             )}
             <DraftResults picks={picks} managers={managers} exportMessage={exportMessage} exportAvailableCsv={exportAvailableCsv} exportResultsCsv={exportResultsCsv} />
           </main>
@@ -1587,7 +1587,11 @@ function DraftBoard({ managers, rows, currentSlot, draftMode, showSetupPanel }) 
 }
 
 function AvailablePool(props) {
-  const { sortedAssets, filteredAssets, draftPoolRankById, remainingCopyCounts, sortMode, setSortMode, query, setQuery, filter, setFilter, filterOptions, currentSlot, picks, userCanDraftCurrentPick, draftAsset, showSetupPanel } = props;
+  const { sortedAssets, filteredAssets, draftPoolRankById, remainingCopyCounts, sortMode, setSortMode, query, setQuery, filter, setFilter, filterOptions, currentSlot, picks, userCanDraftCurrentPick, draftAsset, showSetupPanel, addToQueue, queues, access } = props;
+  const activeManagerIndex = Number.isInteger(access?.managerIndex) ? access.managerIndex : (currentSlot ? currentSlot.managerIndex : null);
+  const canEditQueue = canUserEditQueue(access, activeManagerIndex);
+  const activeQueue = activeManagerIndex != null ? getQueueForManager(queues, activeManagerIndex) : [];
+  const queuedIds = new Set(activeQueue.map((item) => item.asset?.id));
   return (
     <Card className="rounded-3xl shadow-lg shadow-black/20">
       <CardContent className="p-5">
@@ -1612,6 +1616,7 @@ function AvailablePool(props) {
             <tbody>
               {sortedAssets.map((asset) => {
                 const owned = currentSlot ? isAssetBlockedForManager(picks, currentSlot.manager, asset) : false;
+                const isQueued = queuedIds.has(asset.id);
                 return (
                   <tr key={asset.id} className="border-t border-slate-800 bg-slate-900 hover:bg-slate-800">
                     <td className="p-3 text-sm font-semibold text-cyan-300">{getRemainingRankLabel(asset, draftPoolRankById)}</td>
@@ -1619,7 +1624,14 @@ function AvailablePool(props) {
                     <td className="p-3"><div className="flex flex-wrap items-center gap-2"><AssetBadge asset={asset} /><span className="font-semibold">{asset.name}</span><CopyCountBadge asset={asset} remainingCopyCounts={remainingCopyCounts} /></div><div className="text-xs text-slate-400">{asset.notes}</div></td>
                     <td className="p-3">{asset.team}</td>
                     <td className="p-3">{asset.sourceRoster}</td>
-                    <td className="p-3 text-right"><Button size="sm" className="rounded-xl" onClick={() => draftAsset(asset)} disabled={!currentSlot || owned || !userCanDraftCurrentPick}>{owned ? (asset.type === "Division" ? "Division Owned" : "Owned") : !userCanDraftCurrentPick ? "Locked" : "Draft"}</Button></td>
+                    <td className="p-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {canEditQueue && activeManagerIndex != null && (
+                          <Button variant="outline" size="sm" className="rounded-xl" onClick={() => addToQueue(activeManagerIndex, asset)} disabled={isQueued}>{isQueued ? "Queued" : "Queue"}</Button>
+                        )}
+                        <Button size="sm" className="rounded-xl" onClick={() => draftAsset(asset)} disabled={!currentSlot || owned || !userCanDraftCurrentPick}>{owned ? (asset.type === "Division" ? "Division Owned" : "Owned") : !userCanDraftCurrentPick ? "Locked" : "Draft"}</Button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -1632,7 +1644,7 @@ function AvailablePool(props) {
   );
 }
 
-function DraftQueue({ managers, queues, activeQueueTab, setActiveQueueTab, availableAssets, draftPoolRankById, remainingCopyCounts, sortMode, setSortMode, query, setQuery, filter, setFilter, filterOptions, access, addToQueue, removeFromQueue, moveQueueItem, showSetupPanel }) {
+function DraftQueue({ managers, queues, activeQueueTab, setActiveQueueTab, availableAssets, draftPoolRankById, remainingCopyCounts, sortMode, setSortMode, query, setQuery, filter, setFilter, filterOptions, access, addToQueue, removeFromQueue, moveQueueItem, showSetupPanel, currentSlot, userCanDraftCurrentPick, draftAsset }) {
   const activeManagerIndex = Number.isInteger(access?.managerIndex) ? access.managerIndex : activeQueueTab;
   const activeManager = managers[activeManagerIndex] || managers[0] || "Team";
   const activeQueue = getQueueForManager(queues, activeManagerIndex);
@@ -1675,13 +1687,18 @@ function DraftQueue({ managers, queues, activeQueueTab, setActiveQueueTab, avail
                       <div className="break-words font-semibold leading-snug">{item.asset?.name}</div>
                       <div className="mt-1 flex items-center gap-2 text-xs text-slate-400"><AssetBadge asset={item.asset} compact /><span>{item.asset?.team || item.asset?.sourceRoster}</span></div>
                     </div>
-                    {canEditActiveQueue && (
-                      <div className="flex shrink-0 gap-1">
-                        <Button variant="outline" size="sm" className="rounded-lg px-2" onClick={() => moveQueueItem(activeManagerIndex, item.id, -1)} disabled={index === 0}>↑</Button>
-                        <Button variant="outline" size="sm" className="rounded-lg px-2" onClick={() => moveQueueItem(activeManagerIndex, item.id, 1)} disabled={index === activeQueue.length - 1}>↓</Button>
-                        <Button variant="outline" size="sm" className="rounded-lg px-2 text-red-200" onClick={() => removeFromQueue(activeManagerIndex, item.id)}>×</Button>
-                      </div>
-                    )}
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      {userCanDraftCurrentPick && (
+                        <Button size="sm" className="rounded-lg w-full" onClick={() => draftAsset(item.asset)}>Draft</Button>
+                      )}
+                      {canEditActiveQueue && (
+                        <div className="flex gap-1">
+                          <Button variant="outline" size="sm" className="rounded-lg px-2" onClick={() => moveQueueItem(activeManagerIndex, item.id, -1)} disabled={index === 0}>↑</Button>
+                          <Button variant="outline" size="sm" className="rounded-lg px-2" onClick={() => moveQueueItem(activeManagerIndex, item.id, 1)} disabled={index === activeQueue.length - 1}>↓</Button>
+                          <Button variant="outline" size="sm" className="rounded-lg px-2 text-red-200" onClick={() => removeFromQueue(activeManagerIndex, item.id)}>×</Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

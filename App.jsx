@@ -1673,76 +1673,36 @@ function DraftQueue({ managers, queues, activeQueueTab, setActiveQueueTab, avail
           This queue is private to {activeManager}. Admins and spectators cannot view team queues.
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[420px_1fr] items-start">
-          <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="font-semibold">{activeManager}'s Queue</div>
-              <div className="text-sm text-slate-400">{activeQueue.length}</div>
-            </div>
-            <div className={showSetupPanel ? "max-h-[520px] overflow-y-auto space-y-2 pr-1" : "max-h-[680px] overflow-y-auto space-y-2 pr-1"}>
-              {activeQueue.map((item, index) => (
-                <div key={item.id} className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-slate-500">#{index + 1}</div>
-                      <div className="break-words font-semibold leading-snug">{item.asset?.name}</div>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-slate-400"><AssetBadge asset={item.asset} compact /><span>{item.asset?.team || item.asset?.sourceRoster}</span></div>
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      {userCanDraftCurrentPick && (
-                        <Button size="sm" className="rounded-lg w-full" onClick={() => draftAsset(item.asset)}>Draft</Button>
-                      )}
-                      {canEditActiveQueue && (
-                        <div className="flex gap-1">
-                          <Button variant="outline" size="sm" className="rounded-lg px-2" onClick={() => moveQueueItem(activeManagerIndex, item.id, -1)} disabled={index === 0}>↑</Button>
-                          <Button variant="outline" size="sm" className="rounded-lg px-2" onClick={() => moveQueueItem(activeManagerIndex, item.id, 1)} disabled={index === activeQueue.length - 1}>↓</Button>
-                          <Button variant="outline" size="sm" className="rounded-lg px-2 text-red-200" onClick={() => removeFromQueue(activeManagerIndex, item.id)}>×</Button>
-                        </div>
-                      )}
-                    </div>
+        <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="font-semibold">{activeManager}'s Queue</div>
+            <div className="text-sm text-slate-400">{activeQueue.length}</div>
+          </div>
+          <div className={showSetupPanel ? "max-h-[520px] overflow-y-auto space-y-2 pr-1" : "max-h-[680px] overflow-y-auto space-y-2 pr-1"}>
+            {activeQueue.map((item, index) => (
+              <div key={item.id} className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-xs font-semibold text-slate-500">#{index + 1}</div>
+                    <div className="break-words font-semibold leading-snug">{item.asset?.name}</div>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-slate-400"><AssetBadge asset={item.asset} compact /><span>{item.asset?.team || item.asset?.sourceRoster}</span></div>
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    {userCanDraftCurrentPick && (
+                      <Button size="sm" className="rounded-lg w-full" onClick={() => draftAsset(item.asset)}>Draft</Button>
+                    )}
+                    {canEditActiveQueue && (
+                      <div className="flex gap-1">
+                        <Button variant="outline" size="sm" className="rounded-lg px-2" onClick={() => moveQueueItem(activeManagerIndex, item.id, -1)} disabled={index === 0}>↑</Button>
+                        <Button variant="outline" size="sm" className="rounded-lg px-2" onClick={() => moveQueueItem(activeManagerIndex, item.id, 1)} disabled={index === activeQueue.length - 1}>↓</Button>
+                        <Button variant="outline" size="sm" className="rounded-lg px-2 text-red-200" onClick={() => removeFromQueue(activeManagerIndex, item.id)}>×</Button>
+                      </div>
+                    )}
                   </div>
                 </div>
-              ))}
-              {!activeQueue.length && <div className="rounded-xl border border-dashed border-slate-800 p-4 text-sm text-slate-500">No queued assets yet.</div>}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
-            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="font-semibold">Add from available pool</div>
-              <div className="flex flex-wrap gap-2">
-                <select className={inputClass} value={sortMode} onChange={(e) => setSortMode(e.target.value)}>
-                  <option value="sfRank">Sort: FantasyPros SF Rank</option>
-                  <option value="alpha">Sort: Alphabetical</option>
-                </select>
-                <input className={`w-full md:w-64 ${inputClass}`} placeholder="Search queue targets..." value={query} onChange={(e) => setQuery(e.target.value)} />
-                <select className={inputClass} value={filter} onChange={(e) => setFilter(e.target.value)}>
-                  {filterOptions.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
               </div>
-            </div>
-            <div className={showSetupPanel ? "max-h-[520px] overflow-auto rounded-2xl border border-slate-800" : "max-h-[680px] overflow-auto rounded-2xl border border-slate-800"}>
-              <table className="w-full text-left text-sm">
-                <thead className={tableHeadClass}>
-                  <tr><th className="p-3">Remaining</th><th>FP/KTC Rank</th><th>Asset</th><th></th></tr>
-                </thead>
-                <tbody>
-                  {sortedAssets.map((asset) => {
-                    const queueItemId = queuedItemByAssetId.get(asset.id);
-                    const isQueued = queueItemId != null;
-                    return (
-                      <tr key={asset.id} className="border-t border-slate-800 bg-slate-900 hover:bg-slate-800">
-                        <td className="p-3 text-sm font-semibold text-cyan-300">{getRemainingRankLabel(asset, draftPoolRankById)}</td>
-                        <td className="p-3 text-sm font-semibold text-slate-400">{getSourceRankLabel(asset)}</td>
-                        <td className="p-3"><div className="flex flex-wrap items-center gap-2"><AssetBadge asset={asset} /><span className="font-semibold">{asset.name}</span><CopyCountBadge asset={asset} remainingCopyCounts={remainingCopyCounts} /></div><div className="text-xs text-slate-400">{asset.team || asset.sourceRoster} · {asset.notes}</div></td>
-                        <td className="p-3 text-right"><Button size="sm" className="rounded-xl" disabled={!canEditActiveQueue} onClick={() => isQueued ? removeFromQueue(activeManagerIndex, queueItemId) : addToQueue(activeManagerIndex, asset)}>{isQueued ? "Queued ×" : "Add"}</Button></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {!sortedAssets.length && <div className="p-8 text-center text-slate-400">No matching available assets.</div>}
-            </div>
+            ))}
+            {!activeQueue.length && <div className="rounded-xl border border-dashed border-slate-800 p-4 text-sm text-slate-500">No queued assets yet.</div>}
           </div>
         </div>
       </CardContent>

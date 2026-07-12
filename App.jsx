@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, onSnapshot, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
+import { getFirestore, doc, collection, onSnapshot, runTransaction, serverTimestamp, setDoc, deleteDoc } from "firebase/firestore";
 
 const DEFAULT_MANAGERS = ["Replacement Team 1", "Replacement Team 2", "Replacement Team 3", "Replacement Team 4", "Replacement Team 5"];
 const ACCESS_ROLES = { TEAM: "team", ADMIN: "admin", SPECTATOR: "spectator" };
@@ -53,6 +53,11 @@ function getDraftDocRef() {
     cachedFirestore = getFirestore(app);
   }
   return doc(cachedFirestore, FIREBASE_DRAFT_PATH);
+}
+
+function getPresenceCollectionRef() {
+  if (!cachedFirestore) return null;
+  return collection(cachedFirestore, "draftRooms/the-boat-default/presence");
 }
 
 function sanitizeRemoteState(state) {
@@ -907,6 +912,7 @@ export default function DynastyDispersalDraftTool() {
   const remoteLoadedRef = useRef(false);
   const skipNextRemoteSaveRef = useRef(false);
   const suppressRemoteSaveRef = useRef(false);
+  const sessionIdRef = useRef(makeId());
 
   const [assets, setAssets] = useState(() => parsePipeTable(RAW_ASSETS));
   const [managers, setManagers] = useState(DEFAULT_MANAGERS);
@@ -931,6 +937,7 @@ export default function DynastyDispersalDraftTool() {
   const [queues, setQueues] = useState({});
   const [activeQueueTab, setActiveQueueTab] = useState(0);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [liveUserCount, setLiveUserCount] = useState(null);
 
   const draftSlots = useMemo(() => buildDraftSlots(managers, rounds, draftMode), [managers, rounds, draftMode]);
   const currentSlot = draftSlots[picks.length];
@@ -1001,6 +1008,41 @@ export default function DynastyDispersalDraftTool() {
     }, 300);
     return () => window.clearTimeout(timeout);
   }, [assets, managers, draftMode, rounds, picks, queues, teamCodes, remoteDocRef]);
+
+  // Presence: heartbeat every 10s, count active sessions (updated within 20s)
+  useEffect(() => {
+    if (!remoteDocRef) return;
+    const presenceCol = getPresenceCollectionRef();
+    if (!presenceCol) return;
+    const sessionId = sessionIdRef.current;
+    const sessionDocRef = doc(presenceCol, sessionId);
+
+    async function heartbeat() {
+      try { await setDoc(sessionDocRef, { updatedAt: serverTimestamp() }); } catch (_) {}
+    }
+
+    heartbeat();
+    const interval = window.setInterval(heartbeat, 10000);
+
+    function cleanup() { deleteDoc(sessionDocRef).catch(() => {}); }
+    window.addEventListener("beforeunload", cleanup);
+
+    const unsubscribe = onSnapshot(presenceCol, (snapshot) => {
+      const cutoff = Date.now() - 20000;
+      const active = snapshot.docs.filter((d) => {
+        const ts = d.data().updatedAt;
+        return ts && ts.toMillis && ts.toMillis() > cutoff;
+      });
+      setLiveUserCount(active.length);
+    }, () => {});
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("beforeunload", cleanup);
+      cleanup();
+      unsubscribe();
+    };
+  }, [remoteDocRef]);
 
   const filteredAssets = availableAssets.filter((asset) => {
     const matchesType = filter === "All" || asset.type === filter || asset.position === filter;
@@ -1372,6 +1414,7 @@ export default function DynastyDispersalDraftTool() {
                 <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-slate-300">Mode: {getAccessLabel(access, managers)}</span>
                 <span className="rounded-full border border-emerald-700 bg-emerald-950/40 px-3 py-1 text-emerald-200">Firebase live</span>
                 <span className="rounded-full border border-slate-700 bg-slate-950 px-3 py-1 text-cyan-300">{syncMessage}</span>
+                {liveUserCount !== null && <span className="rounded-full border border-violet-700 bg-violet-950/40 px-3 py-1 text-violet-200">👥 {liveUserCount} live</span>}
                 <Button variant="outline" size="sm" className="rounded-xl" onClick={switchAccess}>Switch</Button>
               </div>
               <div className="grid grid-cols-2 gap-2 text-center sm:grid-cols-4">

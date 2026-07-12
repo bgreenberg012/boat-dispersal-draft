@@ -75,128 +75,162 @@ const tableHeadClass = "sticky top-0 z-10 bg-slate-950 text-slate-300";
 // Lower = better. Players sort strictly from this map when available.
 // Rookie picks use KTC-style pick-value anchors because FantasyPros player rankings do not include draft picks.
 const FANTASYPROS_RANKINGS = {
-  "Drake Maye": 4,
-  "Marvin Harrison Jr.": 24,
-  "Brian Thomas Jr.": 28,
-  "C.J. Stroud": 30,
-  "Jordan Love": 34,
-  "Brock Purdy": 36,
-  "Emeka Egbuka": 42,
-  "Kyren Williams": 45,
-  "Josh Jacobs": 52,
-  "DeVonta Smith": 54,
-  "D.J. Moore": 60,
-  "George Kittle": 66,
-  "Travis Hunter": 70,
-  "Rashee Rice": 74,
-  "Bryce Young": 82,
-  "Kenneth Walker III": 86,
-  "Zach Charbonnet": 92,
-  "D'Andre Swift": 96,
-  "Jaylen Warren": 98,
-  "Tony Pollard": 106,
-  "Brandon Aiyuk": 112,
-  "Luther Burden": 116,
-  "Stefon Diggs": 122,
-  "Davante Adams": 128,
-  "Deebo Samuel": 132,
-  "Cooper Kupp": 142,
-  "Jakobi Meyers": 146,
-  "Rhamondre Stevenson": 148,
-  "Jaylin Noel": 154,
-  "Jauan Jennings": 158,
-  "Wan'Dale Robinson": 164,
-  "Woody Marks": 168,
-  "Bhayshul Tuten": 172,
-  "Juwan Johnson": 176,
-  "Pat Freiermuth": 180,
-  "Aaron Rodgers": 184,
-  "Geno Smith": 188,
-  "Tyler Shough": 192,
-  "Shedeur Sanders": 198,
-  "Jalen Milroe": 204,
-  "Joe Mixon": 210,
-  "Kareem Hunt": 218,
-  "Blake Corum": 224,
-  "Braelon Allen": 228,
-  "Brashard Smith": 232,
-  "Keaton Mitchell": 236,
-  "Chigoziem Okonkwo": 240,
-  "Noah Fant": 246,
-  "Taysom Hill": 252,
-  "Christian Kirk": 258,
-  "Tyler Higbee": 264,
-  "Zach Ertz": 270,
-  "Darren Waller": 276,
-  "Rashod Bateman": 282,
-  "Demario Douglas": 288,
-  "Joshua Palmer": 294,
-  "Tyler Lockett": 300,
-  "Skyy Moore": 306,
-  "Savion Williams": 312,
-  "Michael Carter": 318,
-  "Jordan Mason": 324,
-  "Ray Davis": 330,
-  "LeQuint Allen": 336,
-  "Chris Rodriguez": 342,
-  "Miles Sanders": 348,
-  "Jaydon Blue": 354,
-  "Jarquez Hunter": 360,
-  "Jordan James": 366,
-  "Jawhar Jordan": 372,
-  "Phil Mafah": 378,
-  "Raheim Sanders": 384,
-  "Alexander Mattison": 390,
-  "Kenneth Gainwell": 396,
-  "KaVontae Turpin": 402,
-  "Tyreek Hill": 408,
-  "Mac Jones": 414,
-  "Joe Flacco": 420,
+  // FantasyPros Dynasty Superflex ECR (fetched 7/12)
+  "Drake Maye": 2,
+  "Jordan Love": 33,
+  "Brock Purdy": 22,
+  "Emeka Egbuka": 36,
+  "Kenneth Walker III": 41,
+  "DeVonta Smith": 45,
+  "Luther Burden": 48,
+  "Rashee Rice": 53,
+  "D.J. Moore": 85,
+  "George Kittle": 114,
+  "Travis Hunter": 124,
+  "Bryce Young": 89,
+  "Josh Jacobs": 90,
+  "Kenneth Gainwell": 146,
+  "Zach Charbonnet": 127,
+  "D'Andre Swift": 98,
+  "Jaylen Warren": 126,
+  "Tony Pollard": 141,
+  "Brandon Aiyuk": 171,
+  "Stefon Diggs": 172,
+  "Davante Adams": 104,
+  "Deebo Samuel": 197,
+  "Cooper Kupp": 261,
+  "Jakobi Meyers": 122,
+  "Rhamondre Stevenson": 136,
+  "Jaylin Noel": 168,
+  "Jauan Jennings": 155,
+  "Wan'Dale Robinson": 105,
+  "Woody Marks": 160,
+  "Bhayshul Tuten": 95,
+  "Juwan Johnson": 166,
+  "Pat Freiermuth": 205,
+  "Aaron Rodgers": 234,
+  "Geno Smith": 229,
+  "Tyler Shough": 74,
+  "Shedeur Sanders": 183,
+  "Jalen Milroe": 319,
+  "Joe Mixon": 313,
+  "Kareem Hunt": 342,
+  "Blake Corum": 133,
+  "Braelon Allen": 200,
+  "Brashard Smith": 269,
+  "Keaton Mitchell": 213,
+  "Chigoziem Okonkwo": 142,
+  "Noah Fant": 347,
+  "Taysom Hill": 431,
+  "Christian Kirk": 249,
+  "Tyler Higbee": 336,
+  "Zach Ertz": 340,
+  "Darren Waller": 372,
+  "Rashod Bateman": 246,
+  "Demario Douglas": 273,
+  "Joshua Palmer": 303,
+  "Tyler Lockett": 392,
+  "Skyy Moore": 541,
+  "Savion Williams": 301,
+  "Michael Carter": 478,
+  "Jordan Mason": 165,
+  "Ray Davis": 233,
+  "LeQuint Allen": 295,
+  "Chris Rodriguez": 173,
+  "Miles Sanders": 400,
+  "Jaydon Blue": 250,
+  "Jarquez Hunter": 263,
+  "Jordan James": 272,
+  "Jawhar Jordan": 382,
+  "Phil Mafah": 437,
+  "Raheim Sanders": 443,
+  "Alexander Mattison": 413,
+  "KaVontae Turpin": 365,
+  "Tyreek Hill": 217,
+  "Mac Jones": 245,
+  "Joe Flacco": 470,
   "Tyrod Taylor": 426,
-  "Kenny Pickett": 432,
+  "Kenny Pickett": 489,
   "Jimmy Garoppolo": 438,
-  "Malik Willis": 444,
-  "Tanner McKee": 450,
+  "Malik Willis": 96,
+  "Tanner McKee": 482,
   "Andy Dalton": 456,
-  "Deshaun Watson": 462,
-  "Elijah Arroyo": 468,
-  "Terrance Ferguson": 474,
-  "Tyler Conklin": 480,
-  "Will Dissly": 486,
+  "Deshaun Watson": 279,
+  "Elijah Arroyo": 226,
+  "Terrance Ferguson": 158,
+  "Tyler Conklin": 429,
+  "Will Dissly": 485,
   "Johnny Mundt": 492,
-  "Tutu Atwell": 498,
-  "Jimmy Horn": 504,
-  "Jaylin Lane": 510,
-  "Jalen Royals": 516,
-  "Curtis Samuel": 522,
-  "JuJu Smith-Schuster": 528,
+  "Tutu Atwell": 320,
+  "Jimmy Horn": 430,
+  "Jaylin Lane": 306,
+  "Jalen Royals": 267,
+  "Curtis Samuel": 407,
+  "JuJu Smith-Schuster": 503,
   "LaJohntay Wester": 534,
-  "Johnny Wilson": 540,
+  "Johnny Wilson": 538,
   "Hassan Haskins": 546,
+  // LGT players
+  "Jahmyr Gibbs": 11,
+  "Trevor Lawrence": 20,
+  "Jameson Williams": 67,
+  "Cam Ward": 61,
+  "Marvin Harrison Jr.": 65,
+  "Brian Thomas Jr.": 70,
+  "Kyren Williams": 71,
+  "Alec Pierce": 86,
+  "C.J. Stroud": 60,
+  "Dallas Goedert": 140,
+  "J.J. McCarthy": 180,
+  "Oronde Gadsden": 106,
+  "Marvin Mims": 247,
+  "Kirk Cousins": 302,
+  "A.J. Barner": 152,
+  "Jayden Reed": 121,
+  "Xavier Worthy": 115,
+  "Brian Robinson": 206,
+  "Will Shipley": 287,
+  "Bam Knight": 442,
+  "Mike Evans": 101,
+  "Anthony Richardson": 237,
+  "Tyson Bagent": 366,
+  "Will Howard": 358,
 };
 
 const KTC_PICK_RANKINGS = {
-  "2026 Rookie 1.01": 40,
-  "2026 Rookie 1.02": 45,
-  "2026 Rookie 1.04": 58,
-  "2026 Rookie 1.06": 72,
-  "2026 Rookie 1.13": 120,
-  "2026 Rookie 1.14": 130,
-  "2026 Rookie 1.20": 170,
-  "2026 Rookie 2.03": 190,
-  "2026 Rookie 2.04": 196,
-  "2026 Rookie 2.06": 208,
-  "2026 Rookie 2.19": 280,
-  "2026 Rookie 2.20": 284,
-  "2026 Rookie 3.01": 305,
-  "2026 Rookie 3.04": 320,
-  "2026 Rookie 3.06": 330,
-  "2026 Rookie 3.16": 380,
-  "2026 Rookie 4.02": 440,
-  "2026 Rookie 4.04": 452,
-  "2026 Rookie 4.06": 464,
-  "2026 Rookie 4.14": 520,
-  "2026 Rookie 4.19": 550,
+  // Value = projected rookie's overall dynasty SF rank, strictly increasing by overall pick order.
+  // Overall pick# = (round-1)*24 + pick. 12-team slot = ceil(overall# / 2).
+  // Rookies from fantasypros.com/nfl/rankings/dynasty-rookies-superflex.php (7/12).
+  // When projected rank <= previous pick's value, increments by 1 to preserve strict ordering.
+  "2026 Rookie 1.01": 25,  // overall 1  -> slot 1  -> Jeremiyah Love (25)
+  "2026 Rookie 1.02": 26,  // overall 2  -> slot 1  -> Jeremiyah Love
+  "2026 Rookie 1.04": 40,  // overall 4  -> slot 2  -> Carnell Tate (40)
+  "2026 Rookie 1.06": 59,  // overall 6  -> slot 3  -> Fernando Mendoza (59)
+  "2026 Rookie 1.13": 83,  // overall 13 -> slot 7  -> Jadarian Price (83)
+  "2026 Rookie 1.14": 84,  // overall 14 -> slot 7  -> Jadarian Price
+  "2026 Rookie 1.20": 112, // overall 20 -> slot 10 -> Omar Cooper Jr. (112)
+  "2026 Rookie 1.22": 113, // overall 22 -> slot 11 -> Eli Stowers (102)
+  "2026 Rookie 2.03": 177, // overall 27 -> slot 14 -> Nicholas Singleton (177)
+  "2026 Rookie 2.04": 178, // overall 28 -> slot 14 -> Nicholas Singleton
+  "2026 Rookie 2.05": 179, // overall 29 -> slot 15 -> Antonio Williams (135)
+  "2026 Rookie 2.06": 180, // overall 30 -> slot 15 -> Antonio Williams
+  "2026 Rookie 2.13": 181, // overall 37 -> slot 19 -> De'Zhaun Stribling (153)
+  "2026 Rookie 2.19": 189, // overall 43 -> slot 22 -> Elijah Sarratt (189)
+  "2026 Rookie 2.20": 190, // overall 44 -> slot 22 -> Elijah Sarratt
+  "2026 Rookie 2.25": 204, // overall 49 -> slot 25 -> Zachariah Branch (204)
+  "2026 Rookie 3.01": 205, // overall 49 -> slot 25 -> Zachariah Branch; later pick same slot
+  "2026 Rookie 3.04": 275, // overall 52 -> slot 26 -> Carson Beck (275)
+  "2026 Rookie 3.05": 276, // overall 53 -> slot 27 -> Mike Washington Jr. (211)
+  "2026 Rookie 3.06": 277, // overall 54 -> slot 27 -> Mike Washington Jr.
+  "2026 Rookie 3.16": 282, // overall 64 -> slot 32 -> Eli Raridon (282)
+  "2026 Rookie 3.25": 283, // overall 73 -> slot 37 -> Bryce Lance (257)
+  "2026 Rookie 4.01": 284, // overall 73 -> slot 37 -> Bryce Lance; later pick same overall#
+  "2026 Rookie 4.02": 285, // overall 74 -> slot 37 -> Bryce Lance
+  "2026 Rookie 4.04": 338, // overall 76 -> slot 38 -> Cole Payton (338)
+  "2026 Rookie 4.05": 339, // overall 77 -> slot 39 -> Justin Joly (232)
+  "2026 Rookie 4.06": 340, // overall 78 -> slot 39 -> Justin Joly
+  "2026 Rookie 4.14": 341, // overall 86 -> slot 43 -> unranked
+  "2026 Rookie 4.19": 342, // overall 91 -> slot 46 -> unranked
 };
 
 const MANUAL_ASSET_RANKINGS = {
@@ -204,12 +238,15 @@ const MANUAL_ASSET_RANKINGS = {
   "B Division Slot - Boston Bums": 901,
   "B Division Slot - Baby Billy's Bible Bonkers": 902,
   "B Division Slot - Girth Brooks": 903,
+  "B Division Slot - LGT": 904,
   "Denver Broncos": 650,
   "Cleveland Browns": 660,
   "Buffalo Bills": 670,
   "Kansas City Chiefs": 680,
   "Atlanta Falcons": 690,
   "San Francisco 49ers": 700,
+  "Los Angeles Chargers": 710,
+  "Baltimore Ravens": 720,
 };
 
 const RAW_ASSETS = `name|type|position|team|sourceRoster|notes
@@ -341,11 +378,20 @@ Atlanta Falcons|Player|DEF|ATL|Girth Brooks|2025 pts: 192.50
 2026 Rookie 4.04|Pick|Draft Pick||Boston Bums|Overall 76
 2026 Rookie 4.06|Pick|Draft Pick||Keyser Soze|Overall 78
 2026 Rookie 4.14|Pick|Draft Pick||Baby Billy's Bible Bonkers|Overall 86 · traded from Mr Sprinkles
+2026 Rookie 1.22|Pick|Draft Pick||LGT|Overall 22
+2026 Rookie 2.05|Pick|Draft Pick||LGT|Overall 29
+2026 Rookie 2.13|Pick|Draft Pick||LGT|Overall 37
+2026 Rookie 3.05|Pick|Draft Pick||LGT|Overall 53
+2026 Rookie 4.01|Pick|Draft Pick||LGT|Overall 73
+2026 Rookie 4.05|Pick|Draft Pick||LGT|Overall 77
+2026 Rookie 2.25|Pick|Draft Pick||Baby Billy's Bible Bonkers|Overall 49
+2026 Rookie 3.25|Pick|Draft Pick||LGT|Overall 73
 2026 Rookie 4.19|Pick|Draft Pick||Baby Billy's Bible Bonkers|Overall 91 · traded from MBakke
 A Division Slot|Division|Division||Keyser Soze|Keyser Soze's original division slot
 B Division Slot - Boston Bums|Division|Division||Boston Bums|Boston Bums' original division slot
 B Division Slot - Baby Billy's Bible Bonkers|Division|Division||Baby Billy's original division slot
 B Division Slot - Girth Brooks|Division|Division||Girth Brooks|Girth Brooks' original division slot
+B Division Slot - LGT|Division|Division||LGT|LGT's original division slot
 Tyson Bagent|Player|QB|CHI|LGT|2025 pts: 2.88
 Kirk Cousins|Player|QB|LVR|LGT|2025 pts: 125.14
 Will Howard|Player|QB|PIT|LGT|
@@ -561,7 +607,7 @@ function getSourceRankLabel(asset) {
     const equivalentPickName = convertPickTo12TeamEquivalent(asset.name);
     const rank = getAdjustedKtcPickRank(asset);
     const equivalentLabel = equivalentPickName !== asset.name ? ` ≈ ${equivalentPickName.replace("2026 Rookie ", "")}` : "";
-    return rank && rank !== 850 ? `KTC ${rank}${equivalentLabel}` : `KTC —${equivalentLabel}`;
+    return rank && rank !== 850 ? `FP ${rank}${equivalentLabel}` : `FP —${equivalentLabel}`;
   }
   if (asset.type === "Division") return "—";
   if (asset.position === "DEF") {
@@ -779,8 +825,8 @@ function runSelfTests() {
   console.assert(convertPickTo12TeamEquivalent("2026 Rookie 1.12") === "2026 Rookie 1.06", "24-team two-copy pick 1.12 should value like 12-team 1.06");
   console.assert(convertPickTo12TeamEquivalent("2026 Rookie 1.13") === "2026 Rookie 1.07", "24-team two-copy pick 1.13 should value like 12-team 1.07");
   console.assert(getSuperflexRank({ name: "Drake Maye", position: "QB" }) !== getSuperflexRank({ name: "C.J. Stroud", position: "QB" }), "FantasyPros player ranks should remain distinct without positional boosts");
-  console.assert(getSourceRankLabel({ name: "Drake Maye", type: "Player", position: "QB" }) === "FP 4", "Player source rank should show FantasyPros rank label");
-  console.assert(getSourceRankLabel({ name: "2026 Rookie 1.01", type: "Pick", position: "Draft Pick" }) === "KTC 40", "Pick source rank should show KTC-style rank label");
+  console.assert(getSourceRankLabel({ name: "Drake Maye", type: "Player", position: "QB" }) === "FP 2", "Player source rank should show FantasyPros rank label");
+  console.assert(getSourceRankLabel({ name: "2026 Rookie 1.01", type: "Pick", position: "Draft Pick" }) === "FP 25", "Pick source rank should show FP rank label");
   console.assert(getRemainingRankLabel({ id: "a" }, new Map([["a", 2]])) === "#2", "Remaining rank label should show rank within available pool");
   console.assert(compareAssetsBySortMode({ name: "Andy Dalton" }, { name: "Bryce Young" }, "alpha") < 0, "Alphabetical sort should sort by name");
   console.assert(parsePipeTable("name|type|position|team|sourceRoster|notes\nA|Player|QB|X|Y|Z").length === 1, "Pipe table parser should parse one asset");
@@ -1638,7 +1684,7 @@ function AvailablePool(props) {
         <div className={showSetupPanel ? "max-h-[520px] overflow-auto rounded-2xl border border-slate-700" : "max-h-[760px] overflow-auto rounded-2xl border border-slate-700"}>
           <table className="w-full text-left text-sm">
             <thead className={tableHeadClass}>
-              <tr><th className="p-3">Remaining</th><th>FP/KTC Rank</th><th>Asset</th><th>Team</th><th>Original / Owner</th><th></th></tr>
+              <tr><th className="p-3">Remaining</th><th>FP Rank</th><th>Asset</th><th>Team</th><th>Original / Owner</th><th></th></tr>
             </thead>
             <tbody>
               {sortedAssets.map((asset) => {

@@ -1393,7 +1393,7 @@ export default function DynastyDispersalDraftTool() {
           )}
 
           <main className="space-y-4">
-            <MainViewHeader currentSlot={currentSlot} userCanDraftCurrentPick={userCanDraftCurrentPick} mainView={mainView} setMainView={setMainView} showSetupPanel={showSetupPanel} setShowSetupPanel={setShowSetupPanel} canViewQueue={canUserViewQueue(access)} />
+            <MainViewHeader currentSlot={currentSlot} userCanDraftCurrentPick={userCanDraftCurrentPick} mainView={mainView} setMainView={setMainView} showSetupPanel={showSetupPanel} setShowSetupPanel={setShowSetupPanel} canViewQueue={canUserViewQueue(access)} userCanEditSetup={userCanEditSetup} />
             {mainView === "board" ? (
               <DraftBoard managers={managers} rows={draftBoardRows} currentSlot={currentSlot} draftMode={draftMode} showSetupPanel={showSetupPanel} />
             ) : mainView === "queue" && canUserViewQueue(access) ? (
@@ -1575,7 +1575,7 @@ function AssetsAdminCard({ userCanEditSetup, newAsset, setNewAsset, addAsset, ha
   );
 }
 
-function MainViewHeader({ currentSlot, userCanDraftCurrentPick, mainView, setMainView, showSetupPanel, setShowSetupPanel, canViewQueue }) {
+function MainViewHeader({ currentSlot, userCanDraftCurrentPick, mainView, setMainView, showSetupPanel, setShowSetupPanel, canViewQueue, userCanEditSetup }) {
   return (
     <Card className="rounded-3xl shadow-lg shadow-black/20">
       <CardContent className="p-3">
@@ -1589,7 +1589,7 @@ function MainViewHeader({ currentSlot, userCanDraftCurrentPick, mainView, setMai
               {currentSlot && !userCanDraftCurrentPick && <span className="rounded-full bg-amber-950/60 px-2 py-0.5 text-xs font-medium text-amber-200">Locked for you</span>}
             </div>
           </div>
-          {!showSetupPanel && <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setShowSetupPanel(true)}>Show setup</Button>}
+          {!showSetupPanel && userCanEditSetup && <Button variant="outline" size="sm" className="rounded-xl" onClick={() => setShowSetupPanel(true)}>Show setup</Button>}
         </div>
         <div className={`${canViewQueue ? "grid-cols-4" : "grid-cols-3"} grid gap-2 rounded-2xl bg-slate-950 p-1`}>
           <button className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${mainView === "pool" ? "bg-cyan-500 text-slate-950 shadow-lg shadow-black/20" : "text-slate-400 hover:bg-slate-700"}`} onClick={() => setMainView("pool")}>Available Pool</button>

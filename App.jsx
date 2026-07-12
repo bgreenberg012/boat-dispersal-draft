@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, onSnapshot, runTransaction, serverTimestamp, setDoc } from "firebase/firestore";
 
-const DEFAULT_MANAGERS = ["Replacement Team 1", "Replacement Team 2", "Replacement Team 3", "Replacement Team 4"];
+const DEFAULT_MANAGERS = ["Replacement Team 1", "Replacement Team 2", "Replacement Team 3", "Replacement Team 4", "Replacement Team 5"];
 const ACCESS_ROLES = { TEAM: "team", ADMIN: "admin", SPECTATOR: "spectator" };
 const ADMIN_CODE = "BOAT";
 
@@ -345,7 +345,34 @@ Atlanta Falcons|Player|DEF|ATL|Girth Brooks|2025 pts: 192.50
 A Division Slot|Division|Division||Keyser Soze|Keyser Soze's original division slot
 B Division Slot - Boston Bums|Division|Division||Boston Bums|Boston Bums' original division slot
 B Division Slot - Baby Billy's Bible Bonkers|Division|Division||Baby Billy's original division slot
-B Division Slot - Girth Brooks|Division|Division||Girth Brooks|Girth Brooks' original division slot`;
+B Division Slot - Girth Brooks|Division|Division||Girth Brooks|Girth Brooks' original division slot
+Tyson Bagent|Player|QB|CHI|LGT|2025 pts: 2.88
+Kirk Cousins|Player|QB|LVR|LGT|2025 pts: 125.14
+Will Howard|Player|QB|PIT|LGT|
+Trevor Lawrence|Player|QB|JAC|LGT|2025 pts: 386.78
+J.J. McCarthy|Player|QB|MIN|LGT|2025 pts: 144.88
+Anthony Richardson|Player|QB|IND|LGT|2025 pts: 2.26
+Cam Ward|Player|QB|TEN|LGT|2025 pts: 226.46
+LeQuint Allen|Player|RB|JAC|LGT|2025 pts: 86.50
+Jahmyr Gibbs|Player|RB|DET|LGT|2025 pts: 366.90
+Bam Knight|Player|RB|ARI|LGT|2025 pts: 118.50
+Brian Robinson|Player|RB|ATL|LGT|2025 pts: 100.30
+Will Shipley|Player|RB|PHI|LGT|2025 pts: 95.20
+Bhayshul Tuten|Player|RB|JAC|LGT|2025 pts: 142.50
+Mike Evans|Player|WR|SFO|LGT|2025 pts: 84.80
+Jaylin Lane|Player|WR|WAS|LGT|2025 pts: 86.20
+Marvin Mims|Player|WR|DEN|LGT|2025 pts: 204.00
+Joshua Palmer|Player|WR|BUF|LGT|2025 pts: 52.30
+Alec Pierce|Player|WR|IND|LGT|Q · 2025 pts: 183.30
+Jayden Reed|Player|WR|GBP|LGT|2025 pts: 50.60
+Jameson Williams|Player|WR|DET|LGT|2025 pts: 219.90
+Xavier Worthy|Player|WR|KCC|LGT|Q · 2025 pts: 109.90
+A.J. Barner|Player|TE|SEA|LGT|Q · 2025 pts: 179.30
+Noah Fant|Player|TE|NOS|LGT|2025 pts: 94.80
+Oronde Gadsden|Player|TE|LAC|LGT|2025 pts: 158.90
+Dallas Goedert|Player|TE|PHI|LGT|2025 pts: 226.10
+Los Angeles Chargers|Player|DEF|LAC|LGT|2025 pts: 209.50
+Baltimore Ravens|Player|DEF|BAL|LGT|2025 pts: 194.00`;
 
 function makeId() {
   if (typeof globalThis !== "undefined" && globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
